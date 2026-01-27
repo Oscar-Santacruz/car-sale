@@ -1,0 +1,292 @@
+'use client'
+
+import * as React from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { calculateAmortizationSchedule } from "@/lib/financing"
+import { Trash2, Plus } from "lucide-react"
+import { createSaleAction } from "@/app/sales-actions"
+
+type Client = {
+    id: string;
+    name: string;
+    ci: string;
+}
+
+type Vehicle = {
+    id: string;
+    brand: string;
+    model: string;
+    year: number;
+    list_price: number;
+    // ... other fields
+}
+
+export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles: Vehicle[] }) {
+    const [clientId, setClientId] = React.useState("")
+    const [vehicleId, setVehicleId] = React.useState("")
+
+    // Financial Params
+    const [price, setPrice] = React.useState(0)
+    const [downPayment, setDownPayment] = React.useState(0)
+    const [months, setMonths] = React.useState(12)
+    const [interestRate, setInterestRate] = React.useState(0)
+    const [startDate, setStartDate] = React.useState(new Date().toISOString().split('T')[0])
+
+    const [refuerzos, setRefuerzos] = React.useState<{ monthIndex: number, amount: number }[]>([])
+    const [isSubmitting, setIsSubmitting] = React.useState(false)
+
+    // Handlers
+    const handleVehicleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const vId = e.target.value
+        setVehicleId(vId)
+        const vehicle = vehicles.find(v => v.id === vId)
+        if (vehicle) {
+            setPrice(vehicle.list_price)
+            setDownPayment(vehicle.list_price * 0.2) // Default 20% down
+        }
+    }
+
+    const addRefuerzo = () => {
+        setRefuerzos([...refuerzos, { monthIndex: 6, amount: 0 }])
+    }
+
+    const updateRefuerzo = (index: number, field: 'monthIndex' | 'amount', value: number) => {
+        const newRefuerzos = [...refuerzos]
+        newRefuerzos[index] = { ...newRefuerzos[index], [field]: value }
+        setRefuerzos(newRefuerzos)
+    }
+
+    const removeRefuerzo = (index: number) => {
+        setRefuerzos(refuerzos.filter((_, i) => i !== index))
+    }
+
+    // Derived State
+    const balance = Math.max(0, price - downPayment)
+
+    const schedule = React.useMemo(() => {
+        if (balance <= 0 || months <= 0) return []
+        return calculateAmortizationSchedule(
+            balance,
+            months,
+            interestRate,
+            new Date(startDate),
+            refuerzos
+        )
+    }, [balance, months, interestRate, startDate, refuerzos])
+
+    const handleSave = async () => {
+        if (!clientId || !vehicleId) {
+            alert("Seleccione cliente y vehículo")
+            return
+        }
+        setIsSubmitting(true)
+        try {
+            await createSaleAction({
+                clientId,
+                vehicleId,
+                price,
+                downPayment,
+                months,
+                interestRate,
+                startDate,
+                refuerzos
+            })
+        } catch (e: any) {
+            alert("Error: " + e.message)
+            setIsSubmitting(false)
+        }
+    }
+
+    return (
+        <div className="grid gap-6 lg:grid-cols-2">
+            {/* LEFT COLUMN: Inputs */}
+            <div className="space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Datos de la Operación</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Cliente</Label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={clientId}
+                                onChange={(e) => setClientId(e.target.value)}
+                            >
+                                <option value="">Seleccionar Cliente</option>
+                                {clients.map(c => <option key={c.id} value={c.id}>{c.name} - {c.ci}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Vehículo</Label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={vehicleId}
+                                onChange={handleVehicleChange}
+                            >
+                                <option value="">Seleccionar Vehículo</option>
+                                {vehicles.map(v => (
+                                    <option key={v.id} value={v.id}>
+                                        {v.brand} {v.model} {v.year} - ${v.list_price}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Precio Venta ($)</Label>
+                                <Input
+                                    type="number"
+                                    value={price}
+                                    onChange={(e) => setPrice(Number(e.target.value))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Entrega Inicial ($)</Label>
+                                <Input
+                                    type="number"
+                                    value={downPayment}
+                                    onChange={(e) => setDownPayment(Number(e.target.value))}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="rounded-md bg-muted p-4">
+                            <div className="flex justify-between text-sm font-medium">
+                                <span>Saldo a Financiar:</span>
+                                <span className="text-xl font-bold">${balance.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Configuración de Plan</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label>Plazo (Meses)</Label>
+                                <Input
+                                    type="number"
+                                    value={months}
+                                    onChange={(e) => setMonths(Number(e.target.value))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Interés Anual (%)</Label>
+                                <Input
+                                    type="number"
+                                    value={interestRate}
+                                    onChange={(e) => setInterestRate(Number(e.target.value))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Primer Venc.</Label>
+                                <Input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label>Refuerzos (Pagos Extra)</Label>
+                                <Button size="sm" variant="outline" onClick={addRefuerzo} type="button">
+                                    <Plus className="h-4 w-4 mr-2" /> Agregar
+                                </Button>
+                            </div>
+                            {refuerzos.map((r, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                    <div className="w-24">
+                                        <span className="text-xs text-muted-foreground mr-1">Mes #</span>
+                                        <Input
+                                            type="number"
+                                            className="h-8"
+                                            value={r.monthIndex}
+                                            onChange={(e) => updateRefuerzo(idx, 'monthIndex', Number(e.target.value))}
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className="text-xs text-muted-foreground mr-1">Monto $</span>
+                                        <Input
+                                            type="number"
+                                            className="h-8"
+                                            value={r.amount}
+                                            onChange={(e) => updateRefuerzo(idx, 'amount', Number(e.target.value))}
+                                        />
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => removeRefuerzo(idx)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                            ))}
+                            {refuerzos.length === 0 && (
+                                <p className="text-xs text-muted-foreground">Sin refuerzos cargados.</p>
+                            )}
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Button className="w-full" size="lg" onClick={handleSave} disabled={isSubmitting}>
+                            {isSubmitting ? 'Guardando...' : 'Guardar Venta y Generar Pagarés'}
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </div>
+
+            {/* RIGHT COLUMN: Schedule */}
+            <div className="space-y-6">
+                <Card className="h-full flex flex-col">
+                    <CardHeader>
+                        <CardTitle>Tabla de Amortización (Proyección)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 overflow-auto max-h-[600px]">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[50px]">#</TableHead>
+                                    <TableHead>Vencimiento</TableHead>
+                                    <TableHead className="text-right">Cuota</TableHead>
+                                    <TableHead className="text-right">Capital</TableHead>
+                                    <TableHead className="text-right">Int.</TableHead>
+                                    <TableHead className="text-right">Saldo</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {schedule.map((row) => (
+                                    <TableRow key={row.paymentNumber} className={row.isRefuerzo ? "bg-yellow-50 dark:bg-yellow-900/20" : ""}>
+                                        <TableCell className="font-medium">{row.paymentNumber}</TableCell>
+                                        <TableCell>{row.dueDate.toLocaleDateString()}</TableCell>
+                                        <TableCell className="text-right font-bold">
+                                            ${row.installmentAmount.toFixed(2)}
+                                            {row.isRefuerzo && <span className="ml-1 text-[10px] text-muted-foreground">(Ref)</span>}
+                                        </TableCell>
+                                        <TableCell className="text-right text-muted-foreground">${row.capital.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right text-muted-foreground">${row.interest.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right">${row.balance.toFixed(2)}</TableCell>
+                                    </TableRow>
+                                ))}
+                                {schedule.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                                            Configure los parámetros para calcular.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    )
+}
