@@ -3,13 +3,20 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
+interface SheetContextValue {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+}
+
+const SheetContext = React.createContext<SheetContextValue | undefined>(undefined)
+
 const Sheet = ({ children, open, onOpenChange }: {
     children: React.ReactNode
     open: boolean
     onOpenChange: (open: boolean) => void
 }) => {
     return (
-        <>
+        <SheetContext.Provider value={{ open, onOpenChange }}>
             {open && (
                 <div
                     className="fixed inset-0 z-50 bg-black/80"
@@ -17,7 +24,7 @@ const Sheet = ({ children, open, onOpenChange }: {
                 />
             )}
             {children}
-        </>
+        </SheetContext.Provider>
     )
 }
 
@@ -37,9 +44,14 @@ const SheetContent = React.forwardRef<
     HTMLDivElement,
     React.HTMLAttributes<HTMLDivElement> & { side?: "left" | "right" }
 >(({ className, children, side = "left", ...props }, ref) => {
+    const context = React.useContext(SheetContext)
+
+    if (!context?.open) return null
+
     return (
         <div
             ref={ref}
+            data-state={context.open ? "open" : "closed"}
             className={cn(
                 "fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
                 side === "left" && "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
