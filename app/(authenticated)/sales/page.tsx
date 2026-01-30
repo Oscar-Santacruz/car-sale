@@ -32,7 +32,7 @@ async function getSales() {
         *,
         clients ( name ),
         vehicles ( brand, model )
-    `).is('deleted_at', null).order('created_at', { ascending: false })
+    `).order('created_at', { ascending: false })
 
     return data || []
 }

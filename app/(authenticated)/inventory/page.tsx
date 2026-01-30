@@ -83,10 +83,10 @@ export default async function InventoryPage() {
                                     <TableCell>
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${car.status === "available" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
                                             }`}>
-                                            {car.status === 'available' ? 'Disponible' : car.status}
+                                            {car.status === 'available' ? 'Disponible' : (car.status === 'sold' ? 'Vendido' : car.status)}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-right font-bold text-green-700">${car.list_price}</TableCell>
+                                    <TableCell className="text-right font-bold text-green-700">Gs. {Number(car.list_price).toLocaleString('es-PY')}</TableCell>
                                     <TableCell className="text-right">
                                         <Link href={`/inventory/${car.id}`}>
                                             <Button variant="ghost" size="sm">Ver</Button>

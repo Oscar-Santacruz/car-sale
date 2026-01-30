@@ -68,12 +68,18 @@ export function calculateAmortizationSchedule(
         // BUT, commonly, "Refuerzos" are treated as deferred down payments in simple financing.
         // Let's stick to: Installment = RegularPayment.
 
-        const interest = currentBalance * monthlyRate;
-        // Capital part depends on if we are using the calculated PMT or simple division.
-        // With pure simple logic (Rate 0): Interest 0. Capital = Payment.
-
-        let payment = regularMonthlyPayment;
+        let payment = Math.round(regularMonthlyPayment);
+        // Recalculate interest/capital based on rounded payment to keep balance consistent-ish? 
+        // Or just round everything.
+        // Rounding payment is the rule.
+        const interest = Math.round(currentBalance * monthlyRate);
         let capital = payment - interest;
+
+        // Adjust last payment to fix rounding errors?
+        if (i === months) {
+            payment = Math.round(currentBalance + interest);
+            capital = currentBalance;
+        }
 
         currentBalance -= capital;
 
@@ -83,28 +89,14 @@ export function calculateAmortizationSchedule(
             installmentAmount: payment,
             interest: interest,
             capital: capital,
-            balance: Math.max(0, currentBalance),
+            balance: Math.max(0, Math.round(currentBalance)),
             isRefuerzo: false
         });
 
-        // If there's a Refuerzo, add it? Or is it part of the payment?
-        // Let's add it as a separate row or combined. Combined is cleaner for "Cuotero".
         const refuerzo = refuerzos.find(r => r.monthIndex === i);
         if (refuerzo) {
-            // It's an extra payment this month.
-            // We already subtracted it from the amortization base, so it creates a massive capital payment here.
-            schedule[i - 1].installmentAmount += refuerzo.amount;
-            schedule[i - 1].capital += refuerzo.amount; // It goes fully to capital (ignoring interest adjustment for simplicity)
-            // Wait, currentBalance logic above was based on baseAmortizable. 
-            // If we want the balance to track real debt:
-            // The 'currentBalance' in line 82 was tracking the amortized part. 
-            // Real Debt = Base + Refuerzos.
-            // This gets complicated for a quick function.
-
-            // CORRECT SIMPLE APPROACH for MVP:
-            // Rows 1..N.
-            // Each row has a "Regular Payment".
-            // If a Refuerzo hits, add it to that row.
+            schedule[i - 1].installmentAmount += Math.round(refuerzo.amount);
+            schedule[i - 1].capital += Math.round(refuerzo.amount);
             schedule[i - 1].isRefuerzo = true;
         }
     }

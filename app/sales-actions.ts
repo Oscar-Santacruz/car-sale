@@ -13,6 +13,7 @@ type Refuerzo = {
 
 export async function createSaleAction(saleData: {
     clientId: string;
+    codeudorId?: string; // Optional
     vehicleId: string;
     price: number;
     downPayment: number;
@@ -56,6 +57,7 @@ export async function createSaleAction(saleData: {
     const { data: sale, error: saleError } = await supabase.from('sales').insert({
         organization_id,
         client_id: saleData.clientId,
+        codeudor_id: saleData.codeudorId || null,
         vehicle_id: saleData.vehicleId,
         sale_date: new Date().toISOString(),
         total_amount: saleData.price,

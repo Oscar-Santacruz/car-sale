@@ -22,13 +22,19 @@ async function getDashboardData() {
     const now = new Date()
     const start = formatISO(startOfMonth(now))
     const end = formatISO(endOfMonth(now))
+    const todayISO = formatISO(now, { representation: 'date' })
+    const nextMonthISO = formatISO(new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()), { representation: 'date' })
 
     // Parallel fetching for performance
     const [
         salesResponse,
         clientsResponse,
         vehiclesResponse,
-        installmentsResponse,
+        stockValueResponse,
+        portfolioResponse,
+        overdueResponse,
+        projectedCollectionsResponse,
+        upcomingMaturitiesResponse,
         recentSalesResponse
     ] = await Promise.all([
         // 1. Total Sales (Current Month)
@@ -43,13 +49,32 @@ async function getDashboardData() {
             .from('clients')
             .select('*', { count: 'exact', head: true }),
 
-        // 3. Vehicles in Stock
+        // 3. Vehicles in Stock (Count)
         supabase
             .from('vehicles')
             .select('*', { count: 'exact', head: true })
             .eq('status', 'available'),
 
-        // 4. Projected Collections (Installments due this month, pending)
+        // 4. Vehicles Stock Value (Sum list_price)
+        supabase
+            .from('vehicles')
+            .select('list_price')
+            .eq('status', 'available'),
+
+        // 5. Total Portfolio (Cartera) - All pending installments
+        supabase
+            .from('installments')
+            .select('amount')
+            .eq('status', 'pending'),
+
+        // 6. Overdue Portfolio (Morosidad) - Pending and due_date < today
+        supabase
+            .from('installments')
+            .select('amount')
+            .eq('status', 'pending')
+            .lt('due_date', todayISO),
+
+        // 7. Projected Collections (This Month)
         supabase
             .from('installments')
             .select('amount')
@@ -57,7 +82,17 @@ async function getDashboardData() {
             .lte('due_date', end)
             .eq('status', 'pending'),
 
-        // 5. Recent Sales with Relations
+        // 8. Upcoming Maturities (Next 30 days)
+        supabase
+            .from('installments')
+            .select('*, sales(clients(name, ci), vehicles(brand, model, year, plate))')
+            .eq('status', 'pending')
+            .gte('due_date', todayISO)
+            .lte('due_date', nextMonthISO)
+            .order('due_date', { ascending: true })
+            .limit(10),
+
+        // 9. Recent Sales with Relations
         supabase
             .from('sales')
             .select('*, clients(name), vehicles(brand, model, year)')
@@ -66,19 +101,36 @@ async function getDashboardData() {
     ])
 
     const totalSales = salesResponse.data?.reduce((acc, curr) => acc + Number(curr.total_amount), 0) || 0
-    const projectedCollections = installmentsResponse.data?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
+    const stockValue = stockValueResponse.data?.reduce((acc, curr) => acc + Number(curr.list_price), 0) || 0
+    const totalPortfolio = portfolioResponse.data?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
+    const overdueAmount = overdueResponse.data?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
+    const projectedCollections = projectedCollectionsResponse.data?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
+
+    const delinquencyRate = totalPortfolio > 0 ? (overdueAmount / totalPortfolio) * 100 : 0
 
     return {
         totalSales,
         clientsCount: clientsResponse.count || 0,
         vehiclesCount: vehiclesResponse.count || 0,
+        stockValue,
+        totalPortfolio,
+        delinquencyRate,
         projectedCollections,
+        upcomingMaturities: upcomingMaturitiesResponse.data || [],
         recentSales: recentSalesResponse.data || []
     }
 }
 
 export default async function DashboardPage() {
-    const { totalSales, clientsCount, vehiclesCount, projectedCollections, recentSales } = await getDashboardData()
+    const {
+        totalSales,
+        stockValue,
+        totalPortfolio,
+        delinquencyRate,
+        upcomingMaturities,
+        recentSales,
+        vehiclesCount
+    } = await getDashboardData()
 
     return (
         <div className="flex-1 space-y-4">
@@ -100,55 +152,78 @@ export default async function DashboardPage() {
                         </p>
                     </CardContent>
                 </Card>
+
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Clientes Activos
-                        </CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{clientsCount}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Total registrados
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Vehículos en Stock</CardTitle>
-                        <Car className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{vehiclesCount}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Disponibles para venta
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Cobranzas Proyectadas
-                        </CardTitle>
+                        <CardTitle className="text-sm font-medium">Informe de Cartera</CardTitle>
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(projectedCollections)}</div>
+                        <div className="text-2xl font-bold">{formatCurrency(totalPortfolio)}</div>
                         <p className="text-xs text-muted-foreground">
-                            Vencen este mes
+                            Total a Cobrar (Capital)
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Morosidad</CardTitle>
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className={`text-2xl font-bold ${delinquencyRate > 10 ? 'text-red-500' : 'text-green-600'}`}>
+                            {delinquencyRate.toFixed(1)}%
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            % de cartera vencida
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Stock Valorizado</CardTitle>
+                        <Car className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{formatCurrency(stockValue)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            {vehiclesCount} unidades disponibles
                         </p>
                     </CardContent>
                 </Card>
             </div>
+
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <Card className="col-span-4">
                     <CardHeader>
-                        <CardTitle>Resumen de Ventas (Anual)</CardTitle>
+                        <CardTitle>Próximos Vencimientos (30 días)</CardTitle>
                     </CardHeader>
-                    <CardContent className="pl-2">
-                        <div className="h-[240px] flex items-center justify-center text-muted-foreground bg-muted/10 rounded-md">
-                            <p>Gráfico de Barras (Próximamente)</p>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {upcomingMaturities.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-4">No hay vencimientos próximos</p>
+                            ) : (
+                                upcomingMaturities.map((inst: any) => (
+                                    <div className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0" key={inst.id}>
+                                        <div>
+                                            <p className="text-sm font-medium">
+                                                {inst.sales?.clients?.name}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Vence: {new Date(inst.due_date).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="font-medium">{formatCurrency(inst.amount)}</div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Cuota N° {inst.installment_number}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>

@@ -74,7 +74,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">Estado</p>
                                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${vehicle.status === "available" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
-                                    {vehicle.status === 'available' ? 'Disponible' : vehicle.status}
+                                    {vehicle.status === 'available' ? 'Disponible' : (vehicle.status === 'sold' ? 'Vendido' : vehicle.status)}
                                 </span>
                             </div>
                         </div>
@@ -100,7 +100,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-muted-foreground">Precio de Lista</p>
-                            <p className="text-2xl font-bold text-green-700">${vehicle.list_price?.toLocaleString()}</p>
+                            <p className="text-2xl font-bold text-green-700">Gs. {vehicle.list_price?.toLocaleString('es-PY')}</p>
                         </div>
                     </CardContent>
                 </Card>

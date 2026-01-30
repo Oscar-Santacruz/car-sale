@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { updateVehicleAction } from "@/app/actions"
 import { SubmitButton } from "@/components/ui/submit-button"
 import { notFound } from "next/navigation"
+import { VehicleGalleryManager } from "@/components/inventory/vehicle-managers"
 
 async function getVehicle(id: string) {
     const cookieStore = await cookies()
@@ -47,6 +48,15 @@ export default async function EditVehiclePage({ params }: PageProps) {
                     <Button variant="ghost">Cancelar</Button>
                 </Link>
             </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Imágenes del Vehículo</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <VehicleGalleryManager vehicleId={vehicle.id} initialImages={vehicle.images || []} />
+                </CardContent>
+            </Card>
+
             <Card>
                 <CardHeader>
                     <CardTitle>Datos del Vehículo</CardTitle>

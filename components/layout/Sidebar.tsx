@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, Car, Calculator, FileText, Settings } from "lucide-react"
+import { LayoutDashboard, Users, Car, Calculator, FileText, Settings, Wallet } from "lucide-react"
 
 const sidebarLinks = [
     {
@@ -28,6 +28,12 @@ const sidebarLinks = [
         title: "Ventas y Cuotero",
         href: "/sales",
         icon: Calculator,
+        roles: ["admin", "operator"],
+    },
+    {
+        title: "Caja",
+        href: "/collections",
+        icon: Wallet,
         roles: ["admin", "operator"],
     },
     {
