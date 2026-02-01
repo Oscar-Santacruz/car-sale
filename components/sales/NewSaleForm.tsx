@@ -131,7 +131,7 @@ export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Cliente</Label>
+                            <Label>Cliente <span className="text-red-500">*</span></Label>
                             <select
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={clientId}
@@ -161,7 +161,7 @@ export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Tipo de Venta</Label>
+                            <Label>Tipo de Venta <span className="text-red-500">*</span></Label>
                             <select
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={paymentType}
@@ -173,7 +173,7 @@ export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Vehículo</Label>
+                            <Label>Vehículo <span className="text-red-500">*</span></Label>
                             <select
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={vehicleId}
@@ -190,19 +190,25 @@ export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Precio Venta (Gs.)</Label>
+                                <Label>Precio Venta (Gs.) <span className="text-red-500">*</span></Label>
                                 <Input
-                                    type="number"
-                                    value={price}
-                                    onChange={(e) => setPrice(Number(e.target.value))}
+                                    type="text"
+                                    value={price > 0 ? price.toLocaleString('es-PY') : ''}
+                                    onChange={(e) => {
+                                        const val = Number(e.target.value.replace(/\./g, '').replace(/,/g, ''))
+                                        setPrice(isNaN(val) ? 0 : val)
+                                    }}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Entrega Inicial (Gs.)</Label>
+                                <Label>Entrega Inicial (Gs.) <span className="text-red-500">*</span></Label>
                                 <Input
-                                    type="number"
-                                    value={downPayment}
-                                    onChange={(e) => setDownPayment(Number(e.target.value))}
+                                    type="text"
+                                    value={downPayment > 0 ? downPayment.toLocaleString('es-PY') : ''}
+                                    onChange={(e) => {
+                                        const val = Number(e.target.value.replace(/\./g, '').replace(/,/g, ''))
+                                        setDownPayment(isNaN(val) ? 0 : val)
+                                    }}
                                 />
                             </div>
                         </div>
@@ -243,7 +249,7 @@ export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Primer Venc.</Label>
+                                        <Label>Primer Venc. <span className="text-red-500">*</span></Label>
                                         <Input
                                             type="date"
                                             value={startDate}
@@ -273,10 +279,13 @@ export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles
                                             <div className="flex-1">
                                                 <span className="text-xs text-muted-foreground mr-1">Monto Gs.</span>
                                                 <Input
-                                                    type="number"
+                                                    type="text"
                                                     className="h-8"
-                                                    value={r.amount}
-                                                    onChange={(e) => updateRefuerzo(idx, 'amount', Number(e.target.value))}
+                                                    value={r.amount > 0 ? r.amount.toLocaleString('es-PY') : ''}
+                                                    onChange={(e) => {
+                                                        const val = Number(e.target.value.replace(/\./g, '').replace(/,/g, ''))
+                                                        updateRefuerzo(idx, 'amount', isNaN(val) ? 0 : val)
+                                                    }}
                                                 />
                                             </div>
                                             <Button variant="ghost" size="sm" onClick={() => removeRefuerzo(idx)}>

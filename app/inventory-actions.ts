@@ -33,12 +33,12 @@ interface CreateVehicleData {
     categoryId: string
     typeId: string
     year: number
-    plate: string
+    // plate removed
     color: string
     motor: string
-    details: string
-    ciTitular: string
-    titularName: string
+    // details removed
+    // ciTitular removed
+    // titularName removed
     margin: number
     listPrice: number // Calculated or Input
     costs: VehicleCostInput[]
@@ -73,12 +73,12 @@ export async function createVehicleComplexAction(data: CreateVehicleData) {
         category_id: data.categoryId,
         type_id: data.typeId,
         year: data.year,
-        plate: data.plate,
+        plate: '',
         color: data.color,
         motor_number: data.motor,
-        details: data.details,
-        ci_titular: data.ciTitular,
-        titular_name: data.titularName,
+        details: '',
+        ci_titular: '',
+        titular_name: '',
         expected_margin: data.margin,
         list_price: data.listPrice,
         total_cost: totalCost,

@@ -13,6 +13,8 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { createServerClient } from "@supabase/ssr"
 
+export const dynamic = 'force-dynamic'
+
 async function getSales() {
     const cookieStore = await cookies()
 
@@ -28,11 +30,15 @@ async function getSales() {
         }
     )
 
-    const { data } = await supabase.from('sales').select(`
+    const { data, error } = await supabase.from('sales').select(`
         *,
         clients ( name ),
         vehicles ( brand, model )
     `).order('created_at', { ascending: false })
+
+    if (error) {
+        console.error("Error fetching sales:", error);
+    }
 
     return data || []
 }

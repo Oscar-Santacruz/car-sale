@@ -55,7 +55,6 @@ export default async function InventoryPage() {
                             <TableHead>COD</TableHead>
                             <TableHead>Vehículo</TableHead>
                             <TableHead>Año</TableHead>
-                            <TableHead>Chapa</TableHead>
                             <TableHead>Estado</TableHead>
                             <TableHead className="text-right">Precio Lista</TableHead>
                             <TableHead className="text-right">Acciones</TableHead>
@@ -64,7 +63,7 @@ export default async function InventoryPage() {
                     <TableBody>
                         {vehicles.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                                     No hay vehículos en inventario.
                                 </TableCell>
                             </TableRow>
@@ -79,7 +78,7 @@ export default async function InventoryPage() {
                                         </div>
                                     </TableCell>
                                     <TableCell>{car.year}</TableCell>
-                                    <TableCell>{car.plate}</TableCell>
+
                                     <TableCell>
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${car.status === "available" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
                                             }`}>

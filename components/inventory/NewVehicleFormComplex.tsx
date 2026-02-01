@@ -29,12 +29,8 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
         categoryId: "",
         typeId: "",
         year: new Date().getFullYear(),
-        plate: "",
         color: "",
         motor: "",
-        details: "",
-        ciTitular: "",
-        titularName: "",
         margin: 20, // 20% default
         status: "available"
     })
@@ -120,28 +116,18 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Código (ID)</Label>
+                                <Label>Código (ID) <span className="text-red-500">*</span></Label>
                                 <Input name="cod" value={formData.cod} onChange={handleChange} placeholder="Ej: 87" />
                             </div>
                             <div className="space-y-2">
-                                <Label>Chapa</Label>
-                                <Input name="plate" value={formData.plate} onChange={handleChange} />
+                                <Label>N° De Chasis (Opcional)</Label>
+                                <Input name="chassis" value={formData.chassis} onChange={handleChange} />
                             </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>N° De Chasis</Label>
-                            <Input name="chassis" value={formData.chassis} onChange={handleChange} />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Detalles</Label>
-                            <Input name="details" value={formData.details} onChange={handleChange} placeholder="Ej: Cambio volante, etc" />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Familia (Condición)</Label>
+                                <Label>Familia (Condición) <span className="text-red-500">*</span></Label>
                                 <select
                                     name="categoryId"
                                     className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm"
@@ -153,7 +139,7 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Sub Familia (Tipo)</Label>
+                                <Label>Sub Familia (Tipo) <span className="text-red-500">*</span></Label>
                                 <select
                                     name="typeId"
                                     className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm"
@@ -168,7 +154,7 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Marca</Label>
+                                <Label>Marca <span className="text-red-500">*</span></Label>
                                 <select
                                     name="brandId"
                                     className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm"
@@ -180,7 +166,7 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Modelo</Label>
+                                <Label>Modelo <span className="text-red-500">*</span></Label>
                                 <select
                                     name="modelId"
                                     className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm"
@@ -196,17 +182,17 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
 
                         <div className="grid grid-cols-3 gap-4">
                             <div className="space-y-2">
-                                <Label>Año</Label>
+                                <Label>Año <span className="text-red-500">*</span></Label>
                                 <Input name="year" type="number" value={formData.year} onChange={handleChange} />
                             </div>
                             <div className="space-y-2 col-span-2">
-                                <Label>N° De Motor</Label>
+                                <Label>N° De Motor <span className="text-red-500">*</span></Label>
                                 <Input name="motor" value={formData.motor} onChange={handleChange} />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Color</Label>
+                            <Label>Color <span className="text-red-500">*</span></Label>
                             <Input name="color" value={formData.color} onChange={handleChange} />
                         </div>
                     </CardContent>
@@ -214,21 +200,7 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
 
                 {/* RIGHT COLUMN: TITULAR & FINANCIALS */}
                 <div className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Datos del Titular</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>C.I. Titular</Label>
-                                <Input name="ciTitular" value={formData.ciTitular} onChange={handleChange} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Nombre y Apellido</Label>
-                                <Input name="titularName" value={formData.titularName} onChange={handleChange} />
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {/* Removed Data Titular Card */}
 
                     <Card>
                         <CardHeader>
@@ -288,10 +260,14 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
                                             </TableCell>
                                             <TableCell>
                                                 <Input
-                                                    type="number"
-                                                    value={cost.amount}
-                                                    onChange={(e) => updateCost(idx, 'amount', Number(e.target.value))}
+                                                    type="text"
+                                                    value={cost.amount > 0 ? cost.amount.toLocaleString('es-PY') : ''}
+                                                    onChange={(e) => {
+                                                        const val = Number(e.target.value.replace(/\./g, '').replace(/,/g, ''))
+                                                        updateCost(idx, 'amount', isNaN(val) ? 0 : val)
+                                                    }}
                                                     className="h-9"
+                                                    placeholder="0"
                                                 />
                                             </TableCell>
                                             <TableCell>
