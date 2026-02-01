@@ -59,6 +59,13 @@ export async function createVehicleComplexAction(data: CreateVehicleData) {
     // CALCULATE COSTS
     const totalCost = data.costs.reduce((sum, item) => sum + (item.amount || 0), 0)
 
+    // Fetch brand and model names for legacy fields
+    const { data: brandData } = await supabase.from('brands').select('name').eq('id', data.brandId).single()
+    const { data: modelData } = await supabase.from('models').select('name').eq('id', data.modelId).single()
+
+    const brandName = brandData?.name || 'Unknown'
+    const modelName = modelData?.name || 'Unknown'
+
     // 1. Insert Vehicle
     const { data: vehicle, error: vehicleError } = await supabase.from('vehicles').insert({
         organization_id,
@@ -85,18 +92,9 @@ export async function createVehicleComplexAction(data: CreateVehicleData) {
         status: data.status,
         images: data.images,
 
-        // Legacy fields fallback (optional, but good for list view if it uses them)
-        // I should fetch brand/model names? Or triggers?
-        // For now, I'll insert empty or placeholders if 'brand'/'model' (text) are NOT NULL.
-        // Schema said 'brand text not null', 'model text not null'.
-        // So I MUST populate them.
-        brand: "See Rel",
-        model: "See Rel"
-        // Ideally I should fetch the names, but I don't want round trips here if I can avoid it.
-        // Actually, I can allow nulls in schema or just put placeholder.
-        // Users might see "See Rel" in old tables. I should probably fetch name or fix schema to allow null.
-        // Given constraints, I will fetch names or accept them in input.
-        // I'll accept them in input (frontend knows the names).
+        // Legacy fields populated with actual names
+        brand: brandName,
+        model: modelName
     }).select().single()
 
     if (vehicleError) {

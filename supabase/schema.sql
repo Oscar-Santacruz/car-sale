@@ -158,20 +158,25 @@ language plpgsql
 security definer set search_path = public
 as $$
 declare
-  new_org_id uuid;
+  target_org_id uuid;
 begin
-  -- 1. Create a new Organization for the user
-  insert into public.organizations (name)
-  values (coalesce(new.raw_user_meta_data->>'company_name', 'Mi Playa de Autos'))
-  returning id into new_org_id;
+  -- 1. Find the first existing organization (Singleton pattern)
+  select id into target_org_id from public.organizations limit 1;
 
-  -- 2. Create the Profile linked to the Org
+  -- 2. If no organization exists, create one (Bootstrap)
+  if target_org_id is null then
+    insert into public.organizations (name)
+    values (coalesce(new.raw_user_meta_data->>'company_name', 'Organización Principal'))
+    returning id into target_org_id;
+  end if;
+
+  -- 3. Create the Profile linked to this Org
   insert into public.profiles (id, organization_id, email, role)
   values (
     new.id, 
-    new_org_id, 
+    target_org_id, 
     new.email,
-    'admin' -- First user is always admin of their own org
+    'admin' -- Default role
   );
   
   return new;

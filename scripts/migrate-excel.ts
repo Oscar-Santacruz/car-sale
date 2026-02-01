@@ -13,6 +13,18 @@ function escape(str: any): string {
     return `'${String(str).replace(/'/g, "''").trim()}'`;
 }
 
+// Helper to get Org ID
+async function getOrgId(supabase: any) {
+    const { data, error } = await supabase.from('organizations').select('id').limit(1).single();
+    if (error || !data) {
+        console.log("No organization found, creating one...");
+        const { data: newOrg, error: createError } = await supabase.from('organizations').insert({ name: 'Organización Importada' }).select('id').single();
+        if (createError) throw new Error("Failed to create org: " + createError.message);
+        return newOrg.id;
+    }
+    return data.id;
+}
+
 function escapeNum(val: any): string {
     if (val === null || val === undefined || val === '') return '0';
     return String(Number(val));
@@ -20,10 +32,16 @@ function escapeNum(val: any): string {
 
 async function main() {
     console.log("Generating migration.sql...");
+
+    // Initialize Supabase early to get Org ID
+    const { createClient } = require('@supabase/supabase-js');
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+
+    const orgId = await getOrgId(supabase);
+    console.log(`Using Organization ID: ${orgId}`);
+
     const workbook = XLSX.readFile(filePath);
     const sqlStatements: string[] = [];
-
-    const orgId = '28dabdb4-8728-4365-a898-1a15df4f599d';
 
     sqlStatements.push(`-- Migration generated at ${new Date().toISOString()}`);
 
@@ -176,8 +194,7 @@ END $$;
     }
 
     // Execute directly
-    const { createClient } = require('@supabase/supabase-js');
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    // Supabase client already initialized
 
     console.log(`Executing ${sqlStatements.length} SQL blocks...`);
 
