@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { saveCollectionSettings } from "@/app/settings-actions"
+import { saveCollectionSettings, saveCompanyDetails } from "@/app/settings-actions"
 
 interface OrganizationSettingsManagerProps {
     settings: any
@@ -31,6 +31,9 @@ export function OrganizationSettingsManager({ settings }: OrganizationSettingsMa
             await saveCollectionSettings(
                 Number(defaultPenalty),
                 Number(graceDays),
+                settings?.id
+            )
+            await saveCompanyDetails(
                 settings?.id,
                 companyName,
                 ruc,
