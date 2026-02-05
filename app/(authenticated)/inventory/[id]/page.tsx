@@ -22,9 +22,27 @@ async function getVehicle(id: string) {
         }
     )
 
-    const { data, error } = await supabase.from('vehicles').select('*').eq('id', id).single()
+    // Fetch vehicle with related sales (should be 0 or 1 active sale usually, but logic allows many. We take the latest or active one)
+    const { data, error } = await supabase
+        .from('vehicles')
+        .select(`
+            *,
+            sales (
+                id,
+                sale_date,
+                total_amount,
+                clients:clients!sales_client_id_fkey (
+                    id,
+                    name,
+                    ci
+                )
+            )
+        `)
+        .eq('id', id)
+        .single()
+
     if (error) {
-        console.error("Error fetching vehicle", error)
+        console.error("Error fetching vehicle:", JSON.stringify(error, null, 2))
         return null
     }
     return data
@@ -41,6 +59,11 @@ export default async function VehicleDetailPage({ params }: PageProps) {
     const vehicle = await getVehicle(id)
 
     if (!vehicle) notFound()
+
+    // Find active sale if any (assuming logic is status='sold' implies there is a sale)
+    // Or just take the first one if the system enforces 1:1 or 1:N history.
+    // We will display the most recent sale content if available.
+    const activeSale = vehicle.sales && vehicle.sales.length > 0 ? vehicle.sales[0] : null
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
@@ -59,6 +82,35 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                     </Button>
                 </Link>
             </div>
+
+            {/* Sale Banner / Card */}
+            {activeSale && (
+                <Card className="bg-green-50 border-green-200">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-green-800 flex items-center gap-2">
+                            <span className="flex h-2 w-2 rounded-full bg-green-600" />
+                            Vehículo Vendido
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <p className="font-medium text-green-900">
+                                    Cliente: <span className="font-bold">{activeSale.clients?.name || 'Desconocido'}</span>
+                                </p>
+                                <p className="text-sm text-green-800">
+                                    Fecha de Venta: {new Date(activeSale.sale_date).toLocaleDateString()}
+                                </p>
+                            </div>
+                            <Link href={`/sales/${activeSale.id}`}>
+                                <Button variant="outline" className="border-green-600 text-green-700 hover:bg-green-100">
+                                    Ver Detalle Venta
+                                </Button>
+                            </Link>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
