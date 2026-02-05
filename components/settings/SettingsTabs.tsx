@@ -4,7 +4,9 @@ import { useState } from "react"
 import { SimpleCatalogManager } from "./SimpleCatalogManager"
 import { ModelManager } from "./ModelManager"
 import { TaxManager } from "./TaxManager"
-import { saveSimpleItem, deleteItem, saveModel, saveTax } from "@/app/settings-actions"
+import { OrganizationSettingsManager } from "./OrganizationSettingsManager"
+import { BankAccountManager } from "./BankAccountManager"
+import { saveSimpleItem, deleteItem, saveModel, saveTax, saveBankAccount } from "@/app/settings-actions"
 
 interface SettingsTabsProps {
     data: {
@@ -16,6 +18,8 @@ interface SettingsTabsProps {
         paymentMethods: any[]
         taxes: any[]
         creditors: any[]
+        orgSettings?: any
+        bankAccounts: any[]
         debug?: any
     }
 }
@@ -85,6 +89,8 @@ export default function SettingsTabs({ data }: SettingsTabsProps) {
 
                 {activeTab === "financial" && (
                     <div className="grid gap-6 md:grid-cols-2">
+                        <OrganizationSettingsManager settings={data.orgSettings} />
+
                         <SimpleCatalogManager
                             title="Conceptos de Costo"
                             items={data.costConcepts}
@@ -101,6 +107,11 @@ export default function SettingsTabs({ data }: SettingsTabsProps) {
                             taxes={data.taxes}
                             onSave={(name, rate, id) => saveTax(name, rate, id)}
                             onDelete={(id) => deleteItem('taxes', id)}
+                        />
+                        <BankAccountManager
+                            items={data.bankAccounts}
+                            onSave={(formData, id) => saveBankAccount(formData, id)}
+                            onDelete={(id) => deleteItem('bank_accounts', id)}
                         />
                     </div>
                 )}

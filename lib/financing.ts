@@ -95,9 +95,14 @@ export function calculateAmortizationSchedule(
 
         const refuerzo = refuerzos.find(r => r.monthIndex === i);
         if (refuerzo) {
-            schedule[i - 1].installmentAmount += Math.round(refuerzo.amount);
-            schedule[i - 1].capital += Math.round(refuerzo.amount);
+            const refuerzoAmount = Math.round(refuerzo.amount);
+            schedule[i - 1].installmentAmount += refuerzoAmount;
+            schedule[i - 1].capital += refuerzoAmount;
             schedule[i - 1].isRefuerzo = true;
+
+            // Deduct from the running balance so it's not charged again at the end
+            currentBalance -= refuerzoAmount;
+            schedule[i - 1].balance = Math.max(0, Math.round(currentBalance));
         }
     }
 

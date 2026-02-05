@@ -12,6 +12,7 @@ import { Plus } from "lucide-react"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { createServerClient } from "@supabase/ssr"
+import { formatCurrency } from "@/lib/utils"
 
 export const dynamic = 'force-dynamic'
 
@@ -32,7 +33,7 @@ async function getSales() {
 
     const { data, error } = await supabase.from('sales').select(`
         *,
-        clients ( name ),
+        clients:clients!sales_client_id_fkey ( name ),
         vehicles ( brand, model )
     `).order('created_at', { ascending: false })
 
@@ -82,9 +83,9 @@ export default async function SalesPage() {
                                     <TableCell>{new Date(sale.sale_date).toLocaleDateString()}</TableCell>
                                     <TableCell>{sale.clients?.name}</TableCell>
                                     <TableCell>{sale.vehicles?.brand} {sale.vehicles?.model}</TableCell>
-                                    <TableCell className="text-right">${sale.down_payment?.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right">${sale.balance?.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right font-bold">${sale.total_amount?.toLocaleString()}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(sale.down_payment || 0)}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(sale.balance || 0)}</TableCell>
+                                    <TableCell className="text-right font-bold">{formatCurrency(sale.total_amount || 0)}</TableCell>
                                     <TableCell className="text-right">
                                         <Link href={`/sales/${sale.id}`}>
                                             <Button variant="ghost" size="sm">Ver Plan</Button>

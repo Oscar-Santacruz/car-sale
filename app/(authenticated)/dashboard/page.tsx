@@ -25,6 +25,7 @@ async function getDashboardData() {
     const todayISO = formatISO(now, { representation: 'date' })
     const nextMonthISO = formatISO(new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()), { representation: 'date' })
 
+
     // Parallel fetching for performance
     const [
         salesResponse,
@@ -68,9 +69,10 @@ async function getDashboardData() {
             .eq('status', 'pending'),
 
         // 6. Overdue Portfolio (Morosidad) - Pending and due_date < today
+        // We select due_date here to calculate days overdue
         supabase
             .from('installments')
-            .select('amount')
+            .select('amount, due_date')
             .eq('status', 'pending')
             .lt('due_date', todayISO),
 
@@ -87,7 +89,7 @@ async function getDashboardData() {
             .from('installments')
             .select('*, sales(clients(name, ci), vehicles(brand, model, year, plate))')
             .eq('status', 'pending')
-            .gte('due_date', todayISO)
+            .gte('due_date', todayISO) // Changed to gte today instead of gt
             .lte('due_date', nextMonthISO)
             .order('due_date', { ascending: true })
             .limit(10),
@@ -103,7 +105,22 @@ async function getDashboardData() {
     const totalSales = salesResponse.data?.reduce((acc, curr) => acc + Number(curr.total_amount), 0) || 0
     const stockValue = stockValueResponse.data?.reduce((acc, curr) => acc + Number(curr.list_price), 0) || 0
     const totalPortfolio = portfolioResponse.data?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
-    const overdueAmount = overdueResponse.data?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
+
+    // Calculate Overdue Metrics
+    const overdueInstallments = overdueResponse.data || []
+    const overdueAmount = overdueInstallments.reduce((acc, curr) => acc + Number(curr.amount), 0)
+    const overdueCount = overdueInstallments.length
+
+    // Calculate Average Days Overdue
+    let totalDaysOverdue = 0
+    overdueInstallments.forEach(inst => {
+        const due = new Date(inst.due_date)
+        const diffTime = Math.abs(now.getTime() - due.getTime())
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        totalDaysOverdue += diffDays
+    })
+    const averageDaysOverdue = overdueCount > 0 ? Math.round(totalDaysOverdue / overdueCount) : 0
+
     const projectedCollections = projectedCollectionsResponse.data?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
 
     const delinquencyRate = totalPortfolio > 0 ? (overdueAmount / totalPortfolio) * 100 : 0
@@ -116,6 +133,9 @@ async function getDashboardData() {
         totalPortfolio,
         delinquencyRate,
         projectedCollections,
+        overdueAmount,
+        overdueCount,
+        averageDaysOverdue,
         upcomingMaturities: upcomingMaturitiesResponse.data || [],
         recentSales: recentSalesResponse.data || []
     }
@@ -129,7 +149,10 @@ export default async function DashboardPage() {
         delinquencyRate,
         upcomingMaturities,
         recentSales,
-        vehiclesCount
+        vehiclesCount,
+        overdueAmount,
+        overdueCount,
+        averageDaysOverdue
     } = await getDashboardData()
 
     return (
@@ -137,6 +160,8 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
             </div>
+
+            {/* KPI Principales */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -168,7 +193,7 @@ export default async function DashboardPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Morosidad</CardTitle>
+                        <CardTitle className="text-sm font-medium">Morosidad Global</CardTitle>
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -191,6 +216,40 @@ export default async function DashboardPage() {
                         <p className="text-xs text-muted-foreground">
                             {vehiclesCount} unidades disponibles
                         </p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Detalles de Mora */}
+            <div className="grid gap-4 md:grid-cols-3">
+                <Card className="border-l-4 border-l-red-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Monto Total en Mora</CardTitle>
+                        <DollarSign className="h-4 w-4 text-red-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-red-600">{formatCurrency(overdueAmount)}</div>
+                        <p className="text-xs text-muted-foreground">Sumatoria de cuotas vencidas</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-orange-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Cuotas en Mora</CardTitle>
+                        <div className="h-4 w-4 font-bold text-orange-500">#</div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-orange-600">{overdueCount}</div>
+                        <p className="text-xs text-muted-foreground">Cantidad de cuotas pendientes</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-yellow-500">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Días Promedio de Mora</CardTitle>
+                        <TrendingUp className="h-4 w-4 text-yellow-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-yellow-600">{averageDaysOverdue} días</div>
+                        <p className="text-xs text-muted-foreground">Promedio general</p>
                     </CardContent>
                 </Card>
             </div>

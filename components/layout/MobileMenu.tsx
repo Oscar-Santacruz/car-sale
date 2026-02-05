@@ -3,37 +3,10 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, Car, Calculator, Settings, X } from "lucide-react"
+import { sidebarLinks } from "@/lib/nav"
+import { X } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-
-const sidebarLinks = [
-    {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-    },
-    {
-        title: "Clientes",
-        href: "/clients",
-        icon: Users,
-    },
-    {
-        title: "Inventario",
-        href: "/inventory",
-        icon: Car,
-    },
-    {
-        title: "Ventas y Cuotero",
-        href: "/sales",
-        icon: Calculator,
-    },
-    {
-        title: "Configuración",
-        href: "/settings",
-        icon: Settings,
-    },
-]
 
 export function MobileMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
     const pathname = usePathname()

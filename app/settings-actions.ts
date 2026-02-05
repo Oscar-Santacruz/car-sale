@@ -35,6 +35,8 @@ async function getOrganizationId(supabase: any) {
     return org.id
 }
 
+// ... existing code ...
+
 export async function getParametricData() {
     const supabase = await getSupabase()
 
@@ -46,7 +48,9 @@ export async function getParametricData() {
         financialCosts,
         paymentMethods,
         taxes,
-        creditors
+        creditors,
+        orgSettings,
+        bankAccounts
     ] = await Promise.all([
         supabase.from('brands').select('*').order('name'),
         supabase.from('models').select('*, brands(name)').order('name'),
@@ -55,7 +59,9 @@ export async function getParametricData() {
         supabase.from('cost_concepts').select('*').order('name'),
         supabase.from('payment_methods').select('*').order('name'),
         supabase.from('taxes').select('*').order('name'),
-        supabase.from('creditors').select('*').order('name')
+        supabase.from('creditors').select('*').order('name'),
+        supabase.from('organization_settings').select('*').single(),
+        supabase.from('bank_accounts').select('*').order('created_at')
     ])
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -87,6 +93,8 @@ export async function getParametricData() {
         paymentMethods: paymentMethods.data || [],
         taxes: taxes.data || [],
         creditors: creditors.data || [],
+        orgSettings: orgSettings.data || null,
+        bankAccounts: bankAccounts.data || [],
         debug: debugInfo
     }
 }
@@ -138,6 +146,41 @@ export async function saveTax(name: string, rate: number, id?: string) {
         await supabase.from('taxes').update(data).eq('id', id)
     } else {
         await supabase.from('taxes').insert(data)
+    }
+    revalidatePath('/settings')
+}
+
+export async function saveOrganizationSettings(defaultPenalty: number, penaltyDays: number, id?: string) {
+    const supabase = await getSupabase()
+    const organization_id = await getOrganizationId(supabase)
+
+    const data = {
+        organization_id,
+        default_penalty_amount: defaultPenalty,
+        penalty_grace_days: penaltyDays
+    }
+
+    if (id) {
+        await supabase.from('organization_settings').update(data).eq('id', id)
+    } else {
+        await supabase.from('organization_settings').insert(data)
+    }
+    revalidatePath('/settings')
+}
+
+export async function saveBankAccount(data: any, id?: string) {
+    const supabase = await getSupabase()
+    const organization_id = await getOrganizationId(supabase)
+
+    const payload = {
+        ...data,
+        organization_id
+    }
+
+    if (id) {
+        await supabase.from('bank_accounts').update(payload).eq('id', id)
+    } else {
+        await supabase.from('bank_accounts').insert(payload)
     }
     revalidatePath('/settings')
 }

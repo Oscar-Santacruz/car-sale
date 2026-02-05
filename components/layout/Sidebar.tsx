@@ -1,48 +1,10 @@
 'use client'
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, Car, Calculator, FileText, Settings, Wallet } from "lucide-react"
-
-const sidebarLinks = [
-    {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-        roles: ["admin"],
-    },
-    {
-        title: "Clientes",
-        href: "/clients",
-        icon: Users,
-        roles: ["admin", "operator"],
-    },
-    {
-        title: "Inventario",
-        href: "/inventory",
-        icon: Car,
-        roles: ["admin", "operator"],
-    },
-    {
-        title: "Ventas y Cuotero",
-        href: "/sales",
-        icon: Calculator,
-        roles: ["admin", "operator"],
-    },
-    {
-        title: "Caja",
-        href: "/collections",
-        icon: Wallet,
-        roles: ["admin", "operator"],
-    },
-    {
-        title: "Configuración",
-        href: "/settings",
-        icon: Settings,
-        roles: ["admin"],
-    },
-]
+import { sidebarLinks } from "@/lib/nav"
 
 export function Sidebar({ className }: { className?: string }) {
     const pathname = usePathname()
@@ -54,9 +16,13 @@ export function Sidebar({ className }: { className?: string }) {
         <div className={cn("pb-12 h-screen border-r bg-background", className)}>
             <div className="space-y-4 py-4">
                 <div className="px-3 py-2">
-                    <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
-                        Playa de Autos
-                    </h2>
+                    <div className="mb-4 px-4 flex items-center justify-center">
+                        <img
+                            src="/logo.png"
+                            alt="Laneri Automotores"
+                            className="h-16 w-auto object-contain"
+                        />
+                    </div>
                     <div className="space-y-1">
                         {sidebarLinks.map((link) => {
                             if (!link.roles.includes(userRole)) return null

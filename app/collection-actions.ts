@@ -47,12 +47,18 @@ export async function getClientPendingInstallments(clientId: string) {
     return validInstallments
 }
 
-export async function processPayment(data: {
-    installmentId: string,
-    amount: number,
-    paymentMethod: string,
-    referenceNumber?: string
-}) {
+type PaymentData = {
+    installmentId: string | null;
+    saleId: string;
+    amount: number;
+    paymentMethod: string;
+    referenceNumber?: string;
+    penaltyAmount?: number;
+    comment?: string;
+    bankAccountId?: string;
+}
+
+export async function processPayment(data: PaymentData) {
     const cookieStore = await cookies()
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,51 +72,41 @@ export async function processPayment(data: {
         }
     )
 
-    // 1. Get the installment to verify amount and sale_id
-    const { data: installment, error: fetchError } = await supabase
-        .from('installments')
-        .select('*')
-        .eq('id', data.installmentId)
-        .single()
-
-    if (fetchError || !installment) {
-        throw new Error('Cuota no encontrada')
-    }
-
-    // 2. Insert Payment Record
-    const { error: paymentError } = await supabase
-        .from('payments')
-        .insert({
-            installment_id: data.installmentId,
-            sale_id: installment.sale_id,
-            amount: data.amount,
-            payment_method: data.paymentMethod,
-            reference_number: data.referenceNumber,
-            receipt_number: `REC-${Date.now()}` // Simple Receipt ID for now
-        })
+    // 1. Insert Payment
+    const { data: insertedPayment, error: paymentError } = await supabase.from('payments').insert({
+        sale_id: data.saleId,
+        installment_id: data.installmentId,
+        amount: data.amount,
+        payment_method: data.paymentMethod,
+        reference_number: data.referenceNumber,
+        penalty_amount: data.penaltyAmount || 0,
+        comment: data.comment,
+        bank_account_id: data.bankAccountId
+    }).select().single()
 
     if (paymentError) {
-        console.error('Error creating payment:', paymentError)
-        throw new Error('Error al registrar el pago')
+        throw new Error(`Error registering payment: ${paymentError.message}`)
     }
 
-    // 3. Update Installment Status
-    // Assume full payment for now, or check if amount >= installment.amount
-    // If partial payment logic is desired later, we handle it here.
-    // For now: Mark as paid.
+    // 2. Update Installment Status if applicable
+    let installmentNumber = "N/A"
+    if (data.installmentId) {
+        const { data: inst } = await supabase.from('installments').select('number').eq('id', data.installmentId).single()
+        installmentNumber = inst?.number || "N/A"
 
-    // Check if fully paid (simple logic: paid amount >= installment due amount)
-    // NOTE: In a real partial payment system, we'd subtract from balance. 
-    // Let's assume for this MVP it's full payment or nothing for simplicity unless specified.
-    // User asked "Cobro de Cuota", usually implies full. But let's be safe.
+        await supabase.from('installments').update({
+            status: 'paid'
+        }).eq('id', data.installmentId)
+    }
 
-    const { error: updateError } = await supabase
-        .from('installments')
-        .update({ status: 'paid' })
-        .eq('id', data.installmentId)
+    // 3. Update Sale Balance
+    const amountToReduceParams = data.amount - (data.penaltyAmount || 0)
+    const amountToReduce = amountToReduceParams > 0 ? amountToReduceParams : 0
 
-    if (updateError) {
-        throw new Error('Error al actualizar estado de la cuota')
+    const { data: sale } = await supabase.from('sales').select('balance').eq('id', data.saleId).single()
+    if (sale) {
+        const newBalance = sale.balance - amountToReduce
+        await supabase.from('sales').update({ balance: newBalance }).eq('id', data.saleId)
     }
 
     // 4. Log Cash Movement
@@ -119,16 +115,125 @@ export async function processPayment(data: {
         .insert({
             type: 'income',
             amount: data.amount,
-            description: `Cobro Cuota N° ${installment.installment_number} - Venta ${installment.sale_id}`,
-            related_entity_id: installment.sale_id
+            description: `Cobro Cuota N° ${installmentNumber} - Venta ${data.saleId} ${data.penaltyAmount ? `(Incl. Multa: ${data.penaltyAmount})` : ''}`,
+            related_entity_id: data.saleId
         })
 
     if (cashError) {
         console.warn('Error creating cash movement log:', cashError)
-        // Non-blocking error? Maybe strict is better.
     }
 
-    revalidatePath('/dashboard')
+    revalidatePath(`/collections/${data.saleId}`)
     revalidatePath('/collections')
-    return { success: true }
+    return { success: true, payment: insertedPayment }
+}
+
+// ... imports
+
+export type ClientSummary = {
+    id: string
+    name: string
+    ci: string
+    pendingCount: number
+    nearestDueDate: string | null
+    totalOverdue: number
+    status: 'clean' | 'overdue' | 'warning'
+}
+
+export async function getClientsWithPendingSummary(): Promise<ClientSummary[]> {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                get(name: string) {
+                    return cookieStore.get(name)?.value
+                },
+            },
+        }
+    )
+
+    // Fetch clients with their pending installments
+    // We want ALL clients, but we also want to know about their debt.
+    // If a client has no debt, they might still appear but with status 'clean'.
+    const { data: clients, error } = await supabase
+        .from('clients')
+        .select(`
+            id,
+            name,
+            ci,
+            sales:sales!sales_client_id_fkey (
+                id,
+                installments (
+                    id,
+                    amount,
+                    due_date,
+                    status
+                )
+            )
+        `)
+        .order('name')
+
+    if (error) {
+        console.error('Error fetching clients summary:', JSON.stringify(error, null, 2))
+        throw new Error(`Error al obtener el resumen de clientes: ${error.message || JSON.stringify(error)}`)
+    }
+
+    // Process data to flat summary
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const summary = clients.map(client => {
+        let pendingCount = 0
+        let totalOverdue = 0
+        let nearestDueDate: Date | null = null
+        let hasOverdue = false
+
+        client.sales?.forEach((sale: any) => {
+            sale.installments?.forEach((inst: any) => {
+                if (inst.status === 'pending') {
+                    pendingCount++
+                    const due = new Date(inst.due_date)
+
+                    if (!nearestDueDate || due < nearestDueDate) {
+                        nearestDueDate = due
+                    }
+
+                    if (due < today) {
+                        hasOverdue = true
+                        totalOverdue += inst.amount // Only overdue amount
+                    }
+                }
+            })
+        })
+
+        // Determine Status
+        let status: 'clean' | 'overdue' | 'warning' = 'clean'
+        if (hasOverdue) {
+            status = 'overdue'
+        } else if (pendingCount > 0) {
+            // Check if due soon (e.g. within 7 days)
+            if (nearestDueDate) {
+                const nd = nearestDueDate as Date
+                const diffTime = nd.getTime() - today.getTime()
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+                if (diffDays <= 7) {
+                    status = 'warning'
+                }
+            }
+        }
+
+        return {
+            id: client.id,
+            name: client.name,
+            ci: client.ci,
+            pendingCount,
+            nearestDueDate: nearestDueDate ? (nearestDueDate as Date).toISOString() : null,
+            totalOverdue,
+            status
+        }
+    })
+
+    return summary
 }
