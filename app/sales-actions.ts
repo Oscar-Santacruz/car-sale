@@ -21,6 +21,8 @@ export async function createSaleAction(saleData: {
     interestRate: number;
     startDate: string;
     refuerzos: Refuerzo[];
+    paymentMethod?: string;
+    bankAccountId?: string;
 }) {
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -88,7 +90,6 @@ export async function createSaleAction(saleData: {
         throw new Error(`Failed to create installments: ${installError.message} (Code: ${installError.code})`)
     }
 
-    // 3. Update Vehicle Status
     const { error: vehicleError } = await supabase
         .from('vehicles')
         .update({ status: 'sold' })
@@ -96,6 +97,23 @@ export async function createSaleAction(saleData: {
 
     if (vehicleError) {
         console.error("Error updating vehicle:", vehicleError)
+    }
+
+    // 4. Register Initial Payment (Down Payment or Full Cash)
+    if (saleData.downPayment > 0 && saleData.paymentMethod) {
+        const { error: paymentError } = await supabase.from('payments').insert({
+            sale_id: sale.id,
+            installment_id: null, // Initial payment is not linked to a specific installment
+            amount: saleData.downPayment,
+            payment_method: saleData.paymentMethod,
+            bank_account_id: saleData.bankAccountId || null,
+            comment: 'Entrega Inicial / Pago Contado'
+        })
+
+        if (paymentError) {
+            console.error("Error registering initial payment:", paymentError)
+            // We don't throw here to avoid rolling back the whole sale, but we should log it.
+        }
     }
 
     redirect('/sales')

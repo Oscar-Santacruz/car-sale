@@ -34,13 +34,15 @@ export async function createClientAction(formData: FormData) {
     const ci = formData.get('ci') as string
     const phone = formData.get('phone') as string
     const address = formData.get('address') as string
+    const google_maps_link = formData.get('google_maps_link') as string
 
     const { error } = await supabase.from('clients').insert({
         organization_id,
         name,
         ci,
         phone,
-        address
+        address,
+        google_maps_link
     })
 
     if (error) {
@@ -61,12 +63,14 @@ export async function updateClientAction(formData: FormData) {
     const ci = formData.get('ci') as string
     const phone = formData.get('phone') as string
     const address = formData.get('address') as string
+    const google_maps_link = formData.get('google_maps_link') as string
 
     const { error } = await supabase.from('clients').update({
         name,
         ci,
         phone,
-        address
+        address,
+        google_maps_link
     }).eq('id', id)
 
     if (error) {

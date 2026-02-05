@@ -40,6 +40,11 @@ export default function NewClientPage() {
                             <Input id="address" name="address" placeholder="Ej: Asunción, Centro" />
                         </div>
                         <SubmitButton className="w-full">Guardar Cliente</SubmitButton>
+                        <div className="space-y-2">
+                            <Label htmlFor="google_maps_link">Ubicación (Link de Google Maps)</Label>
+                            <Input id="google_maps_link" name="google_maps_link" placeholder="Ej: https://maps.app.goo.gl/..." />
+                            <p className="text-[10px] text-muted-foreground">Pega aquí el enlace de "Compartir" ubicación de Google Maps.</p>
+                        </div>
                     </form>
                 </CardContent>
             </Card>

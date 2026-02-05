@@ -25,7 +25,14 @@ type Vehicle = {
     // ... other fields
 }
 
-export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles: Vehicle[] }) {
+type BankAccount = {
+    id: string;
+    bank_name: string;
+    account_number: string;
+    currency: string;
+}
+
+export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients: Client[], vehicles: Vehicle[], bankAccounts?: BankAccount[] }) {
     const [clientId, setClientId] = React.useState("")
     const [codeudorId, setCodeudorId] = React.useState("")
     const [vehicleId, setVehicleId] = React.useState("")
@@ -40,6 +47,10 @@ export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles
     const [refuerzos, setRefuerzos] = React.useState<{ monthIndex: number, amount: number }[]>([])
     const [isSubmitting, setIsSubmitting] = React.useState(false)
     const [paymentType, setPaymentType] = React.useState<'contado' | 'cuotas'>('contado')
+
+    // Initial Payment Details
+    const [initialPaymentMethod, setInitialPaymentMethod] = React.useState('cash')
+    const [selectedBankAccountId, setSelectedBankAccountId] = React.useState("")
 
     // Handlers
     const handleVehicleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -110,7 +121,10 @@ export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles
                 months,
                 interestRate,
                 startDate,
-                refuerzos
+                refuerzos,
+                // Payment Details
+                paymentMethod: initialPaymentMethod,
+                bankAccountId: initialPaymentMethod === 'transfer' ? selectedBankAccountId : undefined
             })
         } catch (e: any) {
             if (e.message === 'NEXT_REDIRECT' || e.message.includes('NEXT_REDIRECT')) {
@@ -217,6 +231,49 @@ export function NewSaleForm({ clients, vehicles }: { clients: Client[], vehicles
                             <div className="flex justify-between text-sm font-medium">
                                 <span>Saldo a Financiar:</span>
                                 <span className="text-xl font-bold">Gs. {balance.toLocaleString('es-PY')}</span>
+                            </div>
+                        </div>
+
+                        {/* Payment Details Section */}
+                        <div className="border-t pt-4">
+                            <Label className="mb-2 block font-semibold">Detalles del Pago Inicial (Entrega / Contado)</Label>
+
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label>Forma de Pago</Label>
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        value={initialPaymentMethod}
+                                        onChange={(e) => setInitialPaymentMethod(e.target.value)}
+                                    >
+                                        <option value="cash">Efectivo</option>
+                                        <option value="transfer">Transferencia Bancaria</option>
+                                        <option value="check">Cheque</option>
+                                        <option value="pos">Tarjeta (POS)</option>
+                                    </select>
+                                </div>
+
+                                {initialPaymentMethod === 'transfer' && (
+                                    <div className="space-y-2">
+                                        <Label>Cuenta Bancaria Destino <span className="text-red-500">*</span></Label>
+                                        <select
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                            value={selectedBankAccountId}
+                                            onChange={(e) => setSelectedBankAccountId(e.target.value)}
+                                            required
+                                        >
+                                            <option value="">Seleccione cuenta...</option>
+                                            {bankAccounts.map(acc => (
+                                                <option key={acc.id} value={acc.id}>
+                                                    {acc.bank_name} - {acc.account_number} ({acc.currency})
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {bankAccounts.length === 0 && (
+                                            <p className="text-xs text-red-500">No hay cuentas bancarias activas.</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </CardContent>

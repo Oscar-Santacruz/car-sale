@@ -150,7 +150,7 @@ export async function saveTax(name: string, rate: number, id?: string) {
     revalidatePath('/settings')
 }
 
-export async function saveOrganizationSettings(defaultPenalty: number, penaltyDays: number, id?: string) {
+export async function saveCollectionSettings(defaultPenalty: number, penaltyDays: number, id?: string) {
     const supabase = await getSupabase()
     const organization_id = await getOrganizationId(supabase)
 
@@ -158,6 +158,36 @@ export async function saveOrganizationSettings(defaultPenalty: number, penaltyDa
         organization_id,
         default_penalty_amount: defaultPenalty,
         penalty_grace_days: penaltyDays
+    }
+
+    if (id) {
+        await supabase.from('organization_settings').update(data).eq('id', id)
+    } else {
+        await supabase.from('organization_settings').insert(data)
+    }
+    revalidatePath('/settings')
+}
+
+export async function saveCompanyDetails(
+    id?: string,
+    companyName?: string,
+    ruc?: string,
+    address?: string,
+    phone?: string,
+    email?: string,
+    website?: string
+) {
+    const supabase = await getSupabase()
+    const organization_id = await getOrganizationId(supabase)
+
+    const data = {
+        organization_id,
+        company_name: companyName,
+        ruc,
+        address,
+        phone,
+        email,
+        website
     }
 
     if (id) {

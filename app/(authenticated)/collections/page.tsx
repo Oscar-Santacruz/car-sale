@@ -2,7 +2,7 @@ import { CollectionsManager } from "@/components/collections/CollectionsManager"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { Wallet } from "lucide-react"
-import { getClientsWithPendingSummary } from "@/app/collection-actions"
+import { getSalesWithPendingSummary } from "@/app/collection-actions"
 
 async function getOrgSettings() {
     const cookieStore = await cookies()
@@ -36,7 +36,8 @@ async function getBankAccounts() {
 }
 
 export default async function CollectionsPage() {
-    const clients = await getClientsWithPendingSummary()
+    // Fetch sales grouped by vehicle instead of client list
+    const sales = await getSalesWithPendingSummary()
     const settings = await getOrgSettings()
     const bankAccounts = await getBankAccounts()
 
@@ -55,7 +56,9 @@ export default async function CollectionsPage() {
             </div>
 
             <div className="flex-1">
-                <CollectionsManager clients={clients} settings={settings} bankAccounts={bankAccounts} />
+                {/* We pass sales as 'clients' for now, but semantically they are sales items. 
+                    The manager will be updated to handle them. */}
+                <CollectionsManager clients={sales} settings={settings} bankAccounts={bankAccounts} />
             </div>
         </div>
     )

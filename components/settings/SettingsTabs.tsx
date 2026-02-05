@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { SimpleCatalogManager } from "./SimpleCatalogManager"
 import { ModelManager } from "./ModelManager"
+import { CompanyProfileManager } from "./CompanyProfileManager"
 import { TaxManager } from "./TaxManager"
 import { OrganizationSettingsManager } from "./OrganizationSettingsManager"
 import { BankAccountManager } from "./BankAccountManager"
@@ -25,9 +26,12 @@ interface SettingsTabsProps {
 }
 
 export default function SettingsTabs({ data }: SettingsTabsProps) {
-    const [activeTab, setActiveTab] = useState("vehicles")
+    const [activeTab, setActiveTab] = useState("enterprise")
+
+
 
     const tabs = [
+        { id: "enterprise", label: "Empresa" },
         { id: "vehicles", label: "Vehículos" },
         { id: "financial", label: "Financiero" },
         { id: "others", label: "Otros" },
@@ -58,6 +62,12 @@ export default function SettingsTabs({ data }: SettingsTabsProps) {
 
             {/* Content */}
             <div className="min-h-[500px]">
+                {activeTab === "enterprise" && (
+                    <div className="grid gap-6 md:grid-cols-2">
+                        <CompanyProfileManager settings={data.orgSettings} />
+                    </div>
+                )}
+
                 {activeTab === "vehicles" && (
                     <div className="grid gap-6 md:grid-cols-2">
                         <SimpleCatalogManager

@@ -233,7 +233,108 @@ export async function getClientsWithPendingSummary(): Promise<ClientSummary[]> {
             totalOverdue,
             status
         }
-    })
+    }).filter(client => client.pendingCount > 0)
 
     return summary
+}
+export async function getSalesWithPendingSummary(): Promise<any[]> {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                get(name: string) {
+                    return cookieStore.get(name)?.value
+                },
+            },
+        }
+    )
+
+    // Fetch sales with pending installments directly
+    const { data: sales, error } = await supabase
+        .from('sales')
+        .select(`
+            id,
+            total_amount,
+            balance,
+            sale_date,
+            clients:clients!sales_client_id_fkey (
+                name,
+                ci
+            ),
+            vehicles (
+                brand,
+                model,
+                plate
+            ),
+            installments (
+                id,
+                amount,
+                due_date,
+                status
+            )
+        `)
+        .order('sale_date', { ascending: false })
+
+    if (error) {
+        console.error('Error fetching sales summary:', error)
+        throw new Error('Error al obtener ventas pendientes')
+    }
+
+    // Process to find pending details
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const summary = sales.map(sale => {
+        let pendingCount = 0
+        let nearestDueDate: Date | null = null
+        let hasOverdue = false
+        // Cast installments to any to access filtered props if not generic
+        const insts = sale.installments as any[]
+        const pendingInsts = insts.filter(i => i.status === 'pending')
+
+        pendingInsts.forEach(inst => {
+            pendingCount++
+            const due = new Date(inst.due_date)
+            if (!nearestDueDate || due < nearestDueDate) {
+                nearestDueDate = due
+            }
+            if (due < today) {
+                hasOverdue = true
+            }
+        })
+
+        if (pendingCount === 0) return null // Filter out paid sales
+
+        let status: 'clean' | 'overdue' | 'warning' = 'clean'
+        if (hasOverdue) {
+            status = 'overdue'
+        } else if (nearestDueDate) {
+            const nd = nearestDueDate as Date
+            const diffTime = nd.getTime() - today.getTime()
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+            if (diffDays <= 7) {
+                status = 'warning'
+            }
+        }
+
+        // Helper to safely get single relation data
+        const client = Array.isArray(sale.clients) ? sale.clients[0] : sale.clients as any
+        const vehicle = Array.isArray(sale.vehicles) ? sale.vehicles[0] : sale.vehicles as any
+
+        return {
+            id: sale.id, // Sale ID
+            name: client ? `${client.name} - ${vehicle?.brand || ''} ${vehicle?.model || ''}` : 'Cliente Desconocido',
+            ci: client?.ci, // Keep for search
+            pendingCount,
+            nearestDueDate: nearestDueDate ? (nearestDueDate as Date).toISOString() : null,
+            totalOverdue: 0,
+            status,
+            type: 'sale',
+            balance: sale.balance
+        }
+    }).filter(s => s !== null)
+
+    return summary as any[]
 }

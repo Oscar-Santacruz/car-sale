@@ -18,15 +18,17 @@ async function getData() {
 
     const { data: clients } = await supabase.from('clients').select('id, name, ci')
     const { data: vehicles } = await supabase.from('vehicles').select('*').eq('status', 'available')
+    const { data: bankAccounts } = await supabase.from('bank_accounts').select('*').eq('is_active', true)
 
     return {
         clients: clients || [],
-        vehicles: vehicles || []
+        vehicles: vehicles || [],
+        bankAccounts: bankAccounts || []
     }
 }
 
 export default async function NewSalePage() {
-    const { clients, vehicles } = await getData()
+    const { clients, vehicles, bankAccounts } = await getData()
 
     return (
         <div className="space-y-4 h-[calc(100vh-100px)] flex flex-col">
@@ -34,7 +36,7 @@ export default async function NewSalePage() {
                 <h2 className="text-3xl font-bold tracking-tight">Nueva Venta</h2>
             </div>
             <div className="flex-1 min-h-0">
-                <NewSaleForm clients={clients} vehicles={vehicles} />
+                <NewSaleForm clients={clients} vehicles={vehicles} bankAccounts={bankAccounts} />
             </div>
         </div>
     )

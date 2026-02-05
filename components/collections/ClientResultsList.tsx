@@ -41,7 +41,7 @@ export function ClientResultsList({ clients, onSelectClient, isLoading }: Client
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Cliente</TableHead>
+                        <TableHead>Cliente / Vehículo</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
                         <TableHead className="text-center">Cuotas Pendientes</TableHead>
                         <TableHead>Próximo Vencimiento</TableHead>
@@ -90,7 +90,7 @@ export function ClientResultsList({ clients, onSelectClient, isLoading }: Client
                                         onSelectClient(client.id)
                                     }}>
                                         <Wallet className="mr-2 h-4 w-4" />
-                                        Gestionar
+                                        Plan de Pagos
                                     </Button>
                                 </TableCell>
                             </TableRow>

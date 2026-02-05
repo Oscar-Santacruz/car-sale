@@ -13,7 +13,9 @@ import { createClient } from "@/lib/supabase/client"
 import { cookies } from "next/headers"
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
-async function getClients() {
+import { ClientFilters } from "@/components/clients/ClientFilters"
+
+async function getClients(query?: string) {
     const cookieStore = await cookies()
 
     const supabase = createServerClient(
@@ -28,26 +30,41 @@ async function getClients() {
         }
     )
 
-    const { data: clients } = await supabase
+    let supabaseQuery = supabase
         .from('clients')
         .select('*')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
+
+    if (query) {
+        supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,ci.ilike.%${query}%`)
+    }
+
+    const { data: clients } = await supabaseQuery
     return clients || []
 }
 
-export default async function ClientsPage() {
-    const clients = await getClients()
+export default async function ClientsPage(props: {
+    searchParams?: Promise<{
+        query?: string
+    }>
+}) {
+    const searchParams = await props.searchParams
+    const query = searchParams?.query || ''
+    const clients = await getClients(query)
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">Clientes</h2>
-                <Link href="/clients/new">
-                    <Button>
-                        <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
-                    </Button>
-                </Link>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                    <ClientFilters />
+                    <Link href="/clients/new">
+                        <Button>
+                            <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
+                        </Button>
+                    </Link>
+                </div>
             </div>
             <div className="rounded-md border bg-card">
                 <Table>
