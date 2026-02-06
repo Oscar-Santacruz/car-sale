@@ -17,7 +17,7 @@ const totalAmount = 10000000;
 const months = 10;
 const rate = 0;
 const startDate = new Date('2026-02-04');
-const refuerzos: Refuerzo[] = [{ monthIndex: 6, amount: 2000000 }];
+const refuerzos: Refuerzo[] = [{ date: '2026-08-04', amount: 2000000 }];
 
 const schedule = calculateAmortizationSchedule(totalAmount, months, rate, startDate, refuerzos);
 
