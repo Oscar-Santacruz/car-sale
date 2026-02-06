@@ -2,10 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, Users, Car, TrendingUp } from "lucide-react"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import { formatCurrency } from "@/lib/utils" // Ensure this exists and handles PYG
-import { startOfMonth, endOfMonth, formatISO } from "date-fns"
+import { formatCurrency } from "@/lib/utils"
+import { startOfMonth, endOfMonth, formatISO, startOfDay, endOfDay } from "date-fns"
+import { MonthYearSelector } from "@/components/dashboard/MonthYearSelector"
 
-async function getDashboardData() {
+async function getDashboardData(targetYear: number, targetMonth: number) {
     const cookieStore = await cookies()
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,12 +20,20 @@ async function getDashboardData() {
         }
     )
 
-    const now = new Date()
-    const start = formatISO(startOfMonth(now))
-    const end = formatISO(endOfMonth(now))
-    const todayISO = formatISO(now, { representation: 'date' })
-    const nextMonthISO = formatISO(new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()), { representation: 'date' })
+    // Calculate range for the selected month
+    const startOfSelectedMonth = new Date(targetYear, targetMonth, 1)
+    const endOfSelectedMonth = endOfMonth(startOfSelectedMonth)
 
+    // Check if dates are valid
+    if (isNaN(startOfSelectedMonth.getTime())) {
+        throw new Error("Invalid date parameters")
+    }
+
+    const start = formatISO(startOfSelectedMonth)
+    const end = formatISO(endOfSelectedMonth)
+
+    const now = new Date()
+    const todayISO = formatISO(now, { representation: 'date' })
 
     // Parallel fetching for performance
     const [
@@ -35,47 +44,47 @@ async function getDashboardData() {
         portfolioResponse,
         overdueResponse,
         projectedCollectionsResponse,
-        upcomingMaturitiesResponse, // Now fetches next 4 weeks for grouping
+        monthlyMaturitiesResponse,
         recentSalesResponse
     ] = await Promise.all([
-        // 1. Total Sales (Current Month) - Include down_payment to distinguish type
+        // 1. Total Sales (Selected Month)
         supabase
             .from('sales')
             .select('sale_date, total_amount, down_payment')
             .gte('sale_date', start)
             .lte('sale_date', end),
 
-        // 2. Active Clients (Total)
+        // 2. Active Clients (Total - Global metric)
         supabase
             .from('clients')
             .select('*', { count: 'exact', head: true }),
 
-        // 3. Vehicles in Stock (Count)
+        // 3. Vehicles in Stock (Global)
         supabase
             .from('vehicles')
             .select('*', { count: 'exact', head: true })
             .eq('status', 'available'),
 
-        // 4. Vehicles Stock Value (Sum list_price)
+        // 4. Vehicles Stock Value (Global)
         supabase
             .from('vehicles')
             .select('list_price')
             .eq('status', 'available'),
 
-        // 5. Total Portfolio (Cartera) - All pending installments
+        // 5. Total Portfolio (Global)
         supabase
             .from('installments')
             .select('amount')
             .eq('status', 'pending'),
 
-        // 6. Overdue Portfolio (Morosidad) - Pending and due_date < today
+        // 6. Overdue Portfolio (Global)
         supabase
             .from('installments')
             .select('amount, due_date')
             .eq('status', 'pending')
             .lt('due_date', todayISO),
 
-        // 7. Projected Collections (This Month)
+        // 7. Projected Collections (Selected Month)
         supabase
             .from('installments')
             .select('amount')
@@ -83,19 +92,21 @@ async function getDashboardData() {
             .lte('due_date', end)
             .eq('status', 'pending'),
 
-        // 8. Upcoming Maturities (Next 4 Weeks / 30 days)
+        // 8. Maturities (Selected Month)
         supabase
             .from('installments')
             .select('*, sales(clients(name, ci), vehicles(brand, model, year, plate))')
             .eq('status', 'pending')
-            .gte('due_date', todayISO)
-            .lte('due_date', nextMonthISO)
+            .gte('due_date', formatISO(startOfSelectedMonth, { representation: 'date' }))
+            .lte('due_date', formatISO(endOfSelectedMonth, { representation: 'date' }))
             .order('due_date', { ascending: true }),
 
-        // 9. Recent Sales with Relations
+        // 9. Recent Sales (Selected Month)
         supabase
             .from('sales')
             .select('*, clients(name), vehicles(brand, model, year)')
+            .gte('sale_date', start)
+            .lte('sale_date', end)
             .order('sale_date', { ascending: false })
             .limit(5)
     ])
@@ -132,7 +143,7 @@ async function getDashboardData() {
 
     salesResponse.data?.forEach(sale => {
         const amount = Number(sale.total_amount)
-        const isCredit = amount > Number(sale.down_payment) // If total > down payment, it's credit
+        const isCredit = amount > Number(sale.down_payment)
         const date = new Date(sale.sale_date)
         const weekKey = getWeekKey(date)
 
@@ -154,15 +165,13 @@ async function getDashboardData() {
         weeklySales[weekKey].totalAmount += amount
     })
 
-    // Sort weeks? Usually object keys order is insertion order in modern JS but strictly maybe sort keys.
     const sortedWeeklySales = Object.entries(weeklySales).sort().map(([key, val]) => val)
-
 
     const totalSales = totalSalesCash + totalSalesCredit
     const stockValue = stockValueResponse.data?.reduce((acc, curr) => acc + Number(curr.list_price), 0) || 0
     const totalPortfolio = portfolioResponse.data?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
 
-    // Calculate Overdue Metrics
+    // Calculate Overdue Metrics (Global)
     const overdueInstallments = overdueResponse.data || []
     const overdueAmount = overdueInstallments.reduce((acc, curr) => acc + Number(curr.amount), 0)
     const overdueCount = overdueInstallments.length
@@ -178,10 +187,9 @@ async function getDashboardData() {
     const averageDaysOverdue = overdueCount > 0 ? Math.round(totalDaysOverdue / overdueCount) : 0
 
     const projectedCollections = projectedCollectionsResponse.data?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
-
     const delinquencyRate = totalPortfolio > 0 ? (overdueAmount / totalPortfolio) * 100 : 0
 
-    // Group Upcoming Maturities by Week
+    // Group Maturities by Week
     interface MaturityWeeklyMetric {
         weekLabel: string;
         count: number;
@@ -190,7 +198,7 @@ async function getDashboardData() {
     }
     const weeklyMaturities: Record<string, MaturityWeeklyMetric> = {}
 
-    upcomingMaturitiesResponse.data?.forEach((inst: any) => {
+    monthlyMaturitiesResponse.data?.forEach((inst: any) => {
         const date = new Date(inst.due_date)
         const weekKey = getWeekKey(date)
 
@@ -212,7 +220,6 @@ async function getDashboardData() {
         countSalesCash,
         countSalesCredit,
         sortedWeeklySales,
-
         clientsCount: clientsResponse.count || 0,
         vehiclesCount: vehiclesResponse.count || 0,
         stockValue,
@@ -222,19 +229,31 @@ async function getDashboardData() {
         overdueAmount,
         overdueCount,
         averageDaysOverdue,
-        upcomingMaturities: upcomingMaturitiesResponse.data || [],
-        sortedWeeklyMaturities, // New grouped data
+        sortedWeeklyMaturities,
         recentSales: recentSalesResponse.data || []
     }
 }
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+    searchParams: Promise<{
+        year?: string
+        month?: string
+    }>
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+    const params = await searchParams
+    const now = new Date()
+
+    // Parse params or use defaults
+    const selectedYear = params.year ? parseInt(params.year) : now.getFullYear()
+    const selectedMonth = params.month ? parseInt(params.month) : now.getMonth()
+
     const {
         totalSales,
         stockValue,
         totalPortfolio,
         delinquencyRate,
-        upcomingMaturities,
         recentSales,
         vehiclesCount,
         overdueAmount,
@@ -245,13 +264,18 @@ export default async function DashboardPage() {
         countSalesCash,
         countSalesCredit,
         sortedWeeklySales,
-        sortedWeeklyMaturities
-    } = await getDashboardData()
+        sortedWeeklyMaturities,
+        projectedCollections
+    } = await getDashboardData(selectedYear, selectedMonth)
 
     return (
         <div className="flex-1 space-y-4">
-            <div className="flex items-center justify-between space-y-2">
+            <div className="flex flex-col md:flex-row items-center justify-between space-y-2 md:space-y-0">
                 <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+                <MonthYearSelector
+                    currentYear={selectedYear}
+                    currentMonth={selectedMonth}
+                />
             </div>
 
             {/* KPI Principales */}
@@ -280,13 +304,13 @@ export default async function DashboardPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Informe de Cartera</CardTitle>
+                        <CardTitle className="text-sm font-medium">Proyección Cobros (Mes)</CardTitle>
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(totalPortfolio)}</div>
+                        <div className="text-2xl font-bold">{formatCurrency(projectedCollections)}</div>
                         <p className="text-xs text-muted-foreground">
-                            Total a Cobrar (Capital)
+                            Vencimientos del periodo
                         </p>
                     </CardContent>
                 </Card>
@@ -324,11 +348,11 @@ export default async function DashboardPage() {
             <div className="grid gap-4 md:grid-cols-2">
                 <Card className="col-span-2 md:col-span-1">
                     <CardHeader>
-                        <CardTitle>Resumen Semanal de Ventas (Mes Actual)</CardTitle>
+                        <CardTitle>Resumen Semanal de Ventas (Mes)</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {sortedWeeklySales.length === 0 ? (
-                            <p className="text-muted-foreground text-sm">No hay ventas registradas este mes.</p>
+                            <p className="text-muted-foreground text-sm">No hay ventas registradas en este periodo.</p>
                         ) : (
                             <div className="space-y-4">
                                 {sortedWeeklySales.map((week, idx) => (
@@ -360,7 +384,7 @@ export default async function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* Detalles de Mora (moved here for layout balance) */}
+                {/* Detalles de Mora (Always Global metrics) */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 col-span-2 md:col-span-1">
                     <Card className="border-l-4 border-l-red-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -369,7 +393,7 @@ export default async function DashboardPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-red-600">{formatCurrency(overdueAmount)}</div>
-                            <p className="text-xs text-muted-foreground">Sumatoria de cuotas vencidas</p>
+                            <p className="text-xs text-muted-foreground">Sumatoria de cuotas vencidas (Global)</p>
                         </CardContent>
                     </Card>
                     <Card className="border-l-4 border-l-orange-500">
@@ -379,7 +403,7 @@ export default async function DashboardPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-orange-600">{overdueCount}</div>
-                            <p className="text-xs text-muted-foreground">Cantidad de cuotas pendientes</p>
+                            <p className="text-xs text-muted-foreground">Cantidad de cuotas pendientes (Global)</p>
                         </CardContent>
                     </Card>
                     <Card className="border-l-4 border-l-yellow-500 col-span-2">
@@ -395,15 +419,15 @@ export default async function DashboardPage() {
                 </div>
 
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7 col-span-2">
                     <Card className="col-span-4">
                         <CardHeader>
-                            <CardTitle>Próximos Vencimientos (Agrupado por Semana)</CardTitle>
+                            <CardTitle>Vencimientos del Mes (Agrupado por Semana)</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-6">
                                 {sortedWeeklyMaturities.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground text-center py-4">No hay vencimientos próximos</p>
+                                    <p className="text-sm text-muted-foreground text-center py-4">No hay vencimientos en este periodo</p>
                                 ) : (
                                     sortedWeeklyMaturities.map((group, idx) => (
                                         <div key={idx} className="space-y-2">
@@ -440,23 +464,27 @@ export default async function DashboardPage() {
                     </Card>
                     <Card className="col-span-3">
                         <CardHeader>
-                            <CardTitle>Ventas Recientes</CardTitle>
+                            <CardTitle>Ventas del Periodo</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-8">
-                                {recentSales.map((sale: any) => (
-                                    <div className="flex items-center" key={sale.id}>
-                                        <div className="ml-4 space-y-1">
-                                            <p className="text-sm font-medium leading-none">
-                                                {sale.vehicles?.brand} {sale.vehicles?.model} {sale.vehicles?.year}
-                                            </p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {sale.clients?.name}
-                                            </p>
+                                {recentSales.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">No hay ventas en este periodo</p>
+                                ) : (
+                                    recentSales.map((sale: any) => (
+                                        <div className="flex items-center" key={sale.id}>
+                                            <div className="ml-4 space-y-1">
+                                                <p className="text-sm font-medium leading-none">
+                                                    {sale.vehicles?.brand} {sale.vehicles?.model} {sale.vehicles?.year}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {sale.clients?.name}
+                                                </p>
+                                            </div>
+                                            <div className="ml-auto font-medium">{formatCurrency(sale.total_amount)}</div>
                                         </div>
-                                        <div className="ml-auto font-medium">{formatCurrency(sale.total_amount)}</div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
                             </div>
                         </CardContent>
                     </Card>

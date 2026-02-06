@@ -4,6 +4,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { requireAdmin } from '@/lib/permissions'
+import { logAuditAction } from '@/lib/audit'
 
 async function getSupabase() {
     const cookieStore = await cookies()
@@ -151,4 +153,33 @@ export async function updateVehicleAction(formData: FormData) {
     revalidatePath('/inventory')
     revalidatePath(`/inventory/${id}`)
     redirect(`/inventory/${id}`)
+}
+
+export async function deactivateClientAction(clientId: string) {
+    const user = await requireAdmin() // requireAdmin should now return the user for logging
+    const supabase = await getSupabase()
+
+    // Get client details for log before update? Or just log ID.
+    // Let's perform update first.
+
+    const { error } = await supabase
+        .from('clients')
+        .update({ is_active: false })
+        .eq('id', clientId)
+
+    if (error) {
+        console.error('Error deactivating client:', error)
+        throw new Error(`Failed to deactivate client: ${error.message}`)
+    }
+
+    await logAuditAction(
+        user.id,
+        'DEACTIVATE_CLIENT',
+        'clients',
+        clientId,
+        { timestamp: new Date().toISOString() }
+    )
+
+    revalidatePath('/clients')
+    revalidatePath(`/clients/${clientId}`)
 }

@@ -1,16 +1,13 @@
 'use client'
 
 import Link from "next/link"
-import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { sidebarLinks } from "@/lib/nav"
+import { UserRole } from "@/lib/permissions"
 
-export function Sidebar({ className }: { className?: string }) {
+export function Sidebar({ className, userRole = "viewer" }: { className?: string, userRole?: string }) {
     const pathname = usePathname()
-
-    // TODO: Get user role from context
-    const userRole = "admin" // Mock for now
 
     return (
         <div className={cn("pb-12 h-screen border-r bg-background", className)}>
@@ -25,7 +22,7 @@ export function Sidebar({ className }: { className?: string }) {
                     </div>
                     <div className="space-y-1">
                         {sidebarLinks.map((link) => {
-                            if (!link.roles.includes(userRole)) return null
+                            if (!link.roles.includes(userRole as UserRole)) return null
                             const Icon = link.icon
                             return (
                                 <Link

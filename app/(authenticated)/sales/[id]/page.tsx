@@ -13,6 +13,8 @@ import { es } from "date-fns/locale"
 import { formatCurrency } from "@/lib/utils"
 import { calculateDaysOverdue } from "@/lib/overdue-calculations"
 import { ViewReceiptDialog } from "@/components/collections/ViewReceiptDialog"
+import { PermissionGuard } from "@/components/auth/PermissionGuard"
+import { DeleteSaleButton } from "@/components/sales/DeleteSaleButton"
 
 async function getSaleData(id: string) {
     const cookieStore = await cookies()
@@ -98,10 +100,15 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
                     </Link>
                     <h2 className="text-3xl font-bold tracking-tight">Detalle de Venta</h2>
                 </div>
-                {/* Future: Print Contract */}
-                <Button variant="outline">
-                    <Printer className="mr-2 h-4 w-4" /> Imprimir Contrato
-                </Button>
+                <div className="flex gap-2">
+                    {/* Future: Print Contract */}
+                    <Button variant="outline">
+                        <Printer className="mr-2 h-4 w-4" /> Imprimir Contrato
+                    </Button>
+                    <PermissionGuard requiredRole="admin">
+                        <DeleteSaleButton saleId={id} />
+                    </PermissionGuard>
+                </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -345,6 +352,6 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
                     </Table>
                 </CardContent>
             </Card>
-        </div>
+        </div >
     )
 }

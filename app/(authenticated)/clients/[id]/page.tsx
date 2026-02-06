@@ -10,6 +10,8 @@ import { ClientDocumentManager } from "@/components/clients/client-document-mana
 import { ClientSalesList } from "@/components/clients/ClientSalesList"
 import { formatCurrency } from "@/lib/utils"
 import { calculateDaysOverdue } from "@/lib/overdue-calculations"
+import { PermissionGuard } from "@/components/auth/PermissionGuard"
+import { DeactivateClientButton } from "@/components/clients/DeactivateClientButton"
 
 async function getClient(id: string) {
     const cookieStore = await cookies()
@@ -117,6 +119,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
 
     return (
         <div className="max-w-6xl mx-auto space-y-6">
+
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Link href="/clients">
@@ -125,12 +128,20 @@ export default async function ClientDetailPage({ params }: PageProps) {
                         </Button>
                     </Link>
                     <h2 className="text-3xl font-bold tracking-tight">Detalle del Cliente</h2>
+                    {!client.is_active && (
+                        <span className="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">Inactivo</span>
+                    )}
                 </div>
-                <Link href={`/clients/${client.id}/edit`}>
-                    <Button>
-                        <Pencil className="mr-2 h-4 w-4" /> Editar
-                    </Button>
-                </Link>
+                <div className="flex gap-2">
+                    <Link href={`/clients/${client.id}/edit`}>
+                        <Button>
+                            <Pencil className="mr-2 h-4 w-4" /> Editar
+                        </Button>
+                    </Link>
+                    <PermissionGuard requiredRole="admin">
+                        <DeactivateClientButton clientId={client.id} />
+                    </PermissionGuard>
+                </div>
             </div>
 
             {/* Payment Statistics Grid */}

@@ -34,6 +34,7 @@ async function getClients(query?: string) {
         .from('clients')
         .select('*')
         .is('deleted_at', null)
+        .eq('is_active', true) // Default to active clients only
         .order('created_at', { ascending: false })
 
     if (query) {

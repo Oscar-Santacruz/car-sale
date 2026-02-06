@@ -11,25 +11,43 @@ export const sidebarLinks = [
         title: "Clientes",
         href: "/clients",
         icon: Users,
-        roles: ["admin", "operator"],
+        roles: ["admin", "user"],
     },
     {
         title: "Inventario",
         href: "/inventory",
         icon: Car,
-        roles: ["admin", "operator"],
+        roles: ["admin", "user"],
     },
     {
         title: "Ventas y Cuotero",
         href: "/sales",
         icon: Calculator,
-        roles: ["admin", "operator"],
+        roles: ["admin", "user"],
     },
     {
         title: "Caja",
         href: "/collections",
         icon: Wallet,
-        roles: ["admin", "operator"],
+        roles: ["admin", "user"],
+    },
+    {
+        title: "Reportes",
+        href: "/reports/collections", // Direct link to the main report for now
+        icon: FileText,
+        roles: ["admin", "user"],
+    },
+    {
+        title: "Auditoría",
+        href: "/admin/audit",
+        icon: FileText,
+        roles: ["admin"],
+    },
+    {
+        title: "Usuarios",
+        href: "/users",
+        icon: Users,
+        roles: ["admin"],
     },
     {
         title: "Configuración",

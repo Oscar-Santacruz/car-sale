@@ -42,9 +42,13 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
     const [downPayment, setDownPayment] = React.useState(0)
     const [months, setMonths] = React.useState(12)
     const [interestRate, setInterestRate] = React.useState(0)
-    const [startDate, setStartDate] = React.useState(new Date().toISOString().split('T')[0])
 
-    const [refuerzos, setRefuerzos] = React.useState<{ monthIndex: number, amount: number }[]>([])
+    // Default start date (First Payment) to 1 month from today
+    const defaultStartDate = new Date()
+    defaultStartDate.setMonth(defaultStartDate.getMonth() + 1)
+    const [startDate, setStartDate] = React.useState(defaultStartDate.toISOString().split('T')[0])
+
+    const [refuerzos, setRefuerzos] = React.useState<{ date: string, amount: number }[]>([])
     const [isSubmitting, setIsSubmitting] = React.useState(false)
     const [paymentType, setPaymentType] = React.useState<'contado' | 'cuotas'>('contado')
 
@@ -78,10 +82,13 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
     }, [paymentType, price])
 
     const addRefuerzo = () => {
-        setRefuerzos([...refuerzos, { monthIndex: 6, amount: 0 }])
+        // Default to 6 months from now
+        const d = new Date()
+        d.setMonth(d.getMonth() + 6)
+        setRefuerzos([...refuerzos, { date: d.toISOString().split('T')[0], amount: 0 }])
     }
 
-    const updateRefuerzo = (index: number, field: 'monthIndex' | 'amount', value: number) => {
+    const updateRefuerzo = (index: number, field: 'date' | 'amount', value: any) => {
         const newRefuerzos = [...refuerzos]
         newRefuerzos[index] = { ...newRefuerzos[index], [field]: value }
         setRefuerzos(newRefuerzos)
@@ -324,13 +331,13 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
                                     </div>
                                     {refuerzos.map((r, idx) => (
                                         <div key={idx} className="flex items-center gap-2">
-                                            <div className="w-24">
-                                                <span className="text-xs text-muted-foreground mr-1">Mes #</span>
+                                            <div className="w-40">
+                                                <span className="text-xs text-muted-foreground mr-1">Fecha</span>
                                                 <Input
-                                                    type="number"
+                                                    type="date"
                                                     className="h-8"
-                                                    value={r.monthIndex}
-                                                    onChange={(e) => updateRefuerzo(idx, 'monthIndex', Number(e.target.value))}
+                                                    value={r.date}
+                                                    onChange={(e) => updateRefuerzo(idx, 'date', e.target.value)}
                                                 />
                                             </div>
                                             <div className="flex-1">
@@ -375,7 +382,7 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
                             <CardHeader>
                                 <CardTitle>Tabla de Amortización (Proyección)</CardTitle>
                             </CardHeader>
-                            <CardContent className="flex-1 overflow-auto max-h-[600px]">
+                            <CardContent className="flex-1">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
