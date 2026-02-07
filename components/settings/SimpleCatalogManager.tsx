@@ -2,10 +2,12 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Trash2, Pencil, Check, X } from "lucide-react"
+import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog"
 
 interface Item {
     id: string
@@ -17,7 +19,7 @@ interface SimpleCatalogManagerProps {
     title: string
     items: Item[]
     onSave: (name: string, id?: string) => Promise<void>
-    onDelete: (id: string) => Promise<void>
+    onDelete: (id: string, reason?: string) => Promise<any>
 }
 
 export function SimpleCatalogManager({ title, items, onSave, onDelete }: SimpleCatalogManagerProps) {
@@ -26,14 +28,18 @@ export function SimpleCatalogManager({ title, items, onSave, onDelete }: SimpleC
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editName, setEditName] = useState("")
 
+    // Deletion states
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+    const [itemToDelete, setItemToDelete] = useState<Item | null>(null)
+
     const handleAdd = async () => {
         if (!newName.trim()) return
         setIsSubmitting(true)
         try {
             await onSave(newName)
             setNewName("")
-        } catch (error) {
-            console.error(error)
+        } catch (error: any) {
+            toast.error(error.message || 'Error al guardar')
         } finally {
             setIsSubmitting(false)
         }
@@ -56,19 +62,43 @@ export function SimpleCatalogManager({ title, items, onSave, onDelete }: SimpleC
             await onSave(editName, editingId)
             setEditingId(null)
             setEditName("")
-        } catch (error) {
-            console.error(error)
+        } catch (error: any) {
+            toast.error(error.message || 'Error al actualizar')
         } finally {
             setIsSubmitting(false)
         }
     }
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("¿Está seguro de eliminar este ítem?")) return
+    const handleDeleteClick = (item: Item) => {
+        setItemToDelete(item)
+        setShowDeleteConfirm(true)
+    }
+
+    const handleConfirmDelete = async (reason: string) => {
+        if (!itemToDelete) return
+        setIsSubmitting(true)
         try {
-            await onDelete(id)
-        } catch (error) {
+            const result: any = await onDelete(itemToDelete.id, reason)
+
+            if (result && typeof result === 'object') {
+                if (result.success) {
+                    toast.success(result.message || 'Eliminado correctamente')
+                } else {
+                    toast.error(result.message || 'Error al eliminar', {
+                        description: result.error ? `Causa: ${result.message}` : undefined,
+                        duration: 5000
+                    })
+                }
+            } else {
+                toast.success('Eliminado correctamente')
+            }
+        } catch (error: any) {
             console.error(error)
+            toast.error(error.message || 'Error al eliminar')
+        } finally {
+            setIsSubmitting(false)
+            setItemToDelete(null)
+            setShowDeleteConfirm(false)
         }
     }
 
@@ -91,7 +121,7 @@ export function SimpleCatalogManager({ title, items, onSave, onDelete }: SimpleC
                     </Button>
                 </div>
 
-                <div className="rounded-md border overflow-auto">
+                <div className="rounded-md border overflow-auto text-[13px]">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -136,7 +166,7 @@ export function SimpleCatalogManager({ title, items, onSave, onDelete }: SimpleC
                                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(item)}>
                                                             <Pencil className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(item.id)}>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteClick(item)}>
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </>
@@ -150,6 +180,15 @@ export function SimpleCatalogManager({ title, items, onSave, onDelete }: SimpleC
                     </Table>
                 </div>
             </CardContent>
+
+            <DeleteConfirmDialog
+                isOpen={showDeleteConfirm}
+                onOpenChange={setShowDeleteConfirm}
+                onConfirm={handleConfirmDelete}
+                title={`Eliminar ${title}`}
+                description={`¿Está seguro de eliminar "${itemToDelete?.name}"? Esta acción no se puede deshacer.`}
+                isLoading={isSubmitting}
+            />
         </Card>
     )
 }

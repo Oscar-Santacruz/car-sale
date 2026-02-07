@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { VehicleGalleryManager, VehicleDocumentManager } from "@/components/inventory/vehicle-managers"
 import { ArrowLeft, Pencil } from "lucide-react"
 import { notFound } from "next/navigation"
+import { PermissionGuard } from "@/components/auth/PermissionGuard"
+import { DeleteVehicleButton } from "@/components/inventory/DeleteVehicleButton"
 
 async function getVehicle(id: string) {
     const cookieStore = await cookies()
@@ -39,7 +41,7 @@ async function getVehicle(id: string) {
             )
         `)
         .eq('id', id)
-        .single()
+        .maybeSingle()
 
     if (error) {
         console.error("Error fetching vehicle:", JSON.stringify(error, null, 2))
@@ -76,11 +78,16 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                     </Link>
                     <h2 className="text-3xl font-bold tracking-tight">Detalle del Vehículo</h2>
                 </div>
-                <Link href={`/inventory/${vehicle.id}/edit`}>
-                    <Button>
-                        <Pencil className="mr-2 h-4 w-4" /> Editar
-                    </Button>
-                </Link>
+                <div className="flex gap-2">
+                    <Link href={`/inventory/${vehicle.id}/edit`}>
+                        <Button>
+                            <Pencil className="mr-2 h-4 w-4" /> Editar
+                        </Button>
+                    </Link>
+                    <PermissionGuard requiredRole="admin">
+                        <DeleteVehicleButton vehicleId={vehicle.id} />
+                    </PermissionGuard>
+                </div>
             </div>
 
             {/* Sale Banner / Card */}

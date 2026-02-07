@@ -32,7 +32,7 @@ export async function createClientAction(formData: FormData) {
     if (!org) throw new Error("No organization found in database")
     const organization_id = org.id
 
-    const name = formData.get('name') as string
+    const name = (formData.get('name') as string).toUpperCase()
     const ci = formData.get('ci') as string
     const phone = formData.get('phone') as string
     const address = formData.get('address') as string
@@ -61,7 +61,7 @@ export async function updateClientAction(formData: FormData) {
     if (!user) throw new Error("Unauthorized")
 
     const id = formData.get('id') as string
-    const name = formData.get('name') as string
+    const name = (formData.get('name') as string).toUpperCase()
     const ci = formData.get('ci') as string
     const phone = formData.get('phone') as string
     const address = formData.get('address') as string

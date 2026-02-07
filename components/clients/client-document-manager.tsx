@@ -2,6 +2,7 @@
 'use client'
 
 import { useState } from "react"
+import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -24,11 +25,12 @@ export function ClientDocumentManager({ clientId, initialDocuments }: { clientId
 
         if (error) {
             console.error("Error updating documents:", error)
-            alert("Error al guardar el documento.")
+            toast.error("Error al guardar el documento.")
             return
         }
 
         setDocuments(newDocuments)
+        toast.success("Documento cargado correctamente")
         router.refresh()
     }
 
@@ -45,11 +47,12 @@ export function ClientDocumentManager({ clientId, initialDocuments }: { clientId
 
         if (error) {
             console.error("Error deleting document:", error)
-            alert("Error al eliminar el documento.")
+            toast.error("Error al eliminar el documento.")
             return
         }
 
         setDocuments(newDocuments)
+        toast.success("Documento eliminado")
         router.refresh()
     }
 

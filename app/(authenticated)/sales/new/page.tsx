@@ -16,7 +16,7 @@ async function getData() {
         }
     )
 
-    const { data: clients } = await supabase.from('clients').select('id, name, ci')
+    const { data: clients } = await supabase.from('clients').select('id, name, ci').eq('is_active', true).is('deleted_at', null)
     const { data: vehicles } = await supabase.from('vehicles').select('*').eq('status', 'available')
     const { data: bankAccounts } = await supabase.from('bank_accounts').select('*').eq('is_active', true)
 

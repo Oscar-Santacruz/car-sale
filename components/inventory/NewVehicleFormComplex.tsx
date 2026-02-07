@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,6 +11,17 @@ import { Separator } from "@/components/ui/separator"
 import { createVehicleComplexAction } from "@/app/inventory-actions"
 import { Trash2, Plus } from "lucide-react"
 import { FileUploader } from "@/components/ui/file-uploader"
+import { VehiclePaymentPlanManager } from "./VehiclePaymentPlanManager"
+import {
+    Combobox,
+    ComboboxInput,
+    ComboboxContent,
+    ComboboxList,
+    ComboboxItem,
+    ComboboxEmpty,
+    ComboboxTrigger,
+    ComboboxValue,
+} from "@/components/ui/combobox"
 
 interface ParametricData {
     brands: any[]
@@ -74,7 +86,7 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
 
     const handleSubmit = async () => {
         if (!formData.brandId || !formData.modelId) {
-            alert("Marca y Modelo son obligatorios")
+            toast.warning("Marca y Modelo son obligatorios")
             return
         }
         setIsSubmitting(true)
@@ -90,11 +102,12 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
             })
             if (result.success) {
                 // Redirect client-side
+                toast.success("Vehículo creado exitosamente")
                 window.location.href = '/inventory'
             }
         } catch (error: any) {
             console.error(error)
-            alert("Error al guardar: " + error.message)
+            toast.error("Error al guardar: " + error.message)
             setIsSubmitting(false)
         }
     }
@@ -107,14 +120,14 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
 
     return (
         <div className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
                 {/* LEFT COLUMN: VEHICLE DETAILS */}
                 <Card>
                     <CardHeader>
                         <CardTitle>Datos de la Unidad</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Código (ID) <span className="text-red-500">*</span></Label>
                                 <Input name="cod" value={formData.cod} onChange={handleChange} placeholder="Ej: 87" />
@@ -125,62 +138,110 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Familia (Condición) <span className="text-red-500">*</span></Label>
-                                <select
-                                    name="categoryId"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm"
+                                <Combobox
                                     value={formData.categoryId}
-                                    onChange={handleChange}
+                                    onValueChange={(value) => setFormData(prev => ({ ...prev, categoryId: value || '' }))}
                                 >
-                                    <option value="" className="bg-popover text-popover-foreground">Seleccionar...</option>
-                                    {data.categories.map(c => <option key={c.id} value={c.id} className="bg-popover text-popover-foreground">{c.name}</option>)}
-                                </select>
+                                    <ComboboxTrigger className="w-full">
+                                        <ComboboxValue placeholder="Seleccionar...">
+                                            {data.categories.find(c => c.id === formData.categoryId)?.name || 'Seleccionar...'}
+                                        </ComboboxValue>
+                                    </ComboboxTrigger>
+                                    <ComboboxContent>
+                                        <ComboboxInput placeholder="Buscar..." />
+                                        <ComboboxList>
+                                            <ComboboxEmpty>No encontrado</ComboboxEmpty>
+                                            {data.categories.map(c => (
+                                                <ComboboxItem key={c.id} value={c.id}>
+                                                    {c.name}
+                                                </ComboboxItem>
+                                            ))}
+                                        </ComboboxList>
+                                    </ComboboxContent>
+                                </Combobox>
                             </div>
                             <div className="space-y-2">
                                 <Label>Sub Familia (Tipo) <span className="text-red-500">*</span></Label>
-                                <select
-                                    name="typeId"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm"
+                                <Combobox
                                     value={formData.typeId}
-                                    onChange={handleChange}
+                                    onValueChange={(value) => setFormData(prev => ({ ...prev, typeId: value || '' }))}
                                 >
-                                    <option value="" className="bg-popover text-popover-foreground">Seleccionar...</option>
-                                    {data.types.map(t => <option key={t.id} value={t.id} className="bg-popover text-popover-foreground">{t.name}</option>)}
-                                </select>
+                                    <ComboboxTrigger className="w-full">
+                                        <ComboboxValue placeholder="Seleccionar...">
+                                            {data.types.find(t => t.id === formData.typeId)?.name || 'Seleccionar...'}
+                                        </ComboboxValue>
+                                    </ComboboxTrigger>
+                                    <ComboboxContent>
+                                        <ComboboxInput placeholder="Buscar..." />
+                                        <ComboboxList>
+                                            <ComboboxEmpty>No encontrado</ComboboxEmpty>
+                                            {data.types.map(t => (
+                                                <ComboboxItem key={t.id} value={t.id}>
+                                                    {t.name}
+                                                </ComboboxItem>
+                                            ))}
+                                        </ComboboxList>
+                                    </ComboboxContent>
+                                </Combobox>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Marca <span className="text-red-500">*</span></Label>
-                                <select
-                                    name="brandId"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm"
+                                <Combobox
                                     value={formData.brandId}
-                                    onChange={handleChange}
+                                    onValueChange={(value) => setFormData(prev => ({ ...prev, brandId: value || '', modelId: '' }))}
                                 >
-                                    <option value="" className="bg-popover text-popover-foreground">Seleccionar...</option>
-                                    {data.brands.map(b => <option key={b.id} value={b.id} className="bg-popover text-popover-foreground">{b.name}</option>)}
-                                </select>
+                                    <ComboboxTrigger className="w-full">
+                                        <ComboboxValue placeholder="Seleccionar...">
+                                            {data.brands.find(b => b.id === formData.brandId)?.name || 'Seleccionar...'}
+                                        </ComboboxValue>
+                                    </ComboboxTrigger>
+                                    <ComboboxContent>
+                                        <ComboboxInput placeholder="Buscar marca..." />
+                                        <ComboboxList>
+                                            <ComboboxEmpty>No encontrado</ComboboxEmpty>
+                                            {data.brands.map(b => (
+                                                <ComboboxItem key={b.id} value={b.id}>
+                                                    {b.name}
+                                                </ComboboxItem>
+                                            ))}
+                                        </ComboboxList>
+                                    </ComboboxContent>
+                                </Combobox>
                             </div>
                             <div className="space-y-2">
                                 <Label>Modelo <span className="text-red-500">*</span></Label>
-                                <select
-                                    name="modelId"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm"
+                                <Combobox
                                     value={formData.modelId}
-                                    onChange={handleChange}
+                                    onValueChange={(value) => setFormData(prev => ({ ...prev, modelId: value || '' }))}
                                     disabled={!formData.brandId}
                                 >
-                                    <option value="" className="bg-popover text-popover-foreground">Seleccionar...</option>
-                                    {filteredModels.map(m => <option key={m.id} value={m.id} className="bg-popover text-popover-foreground">{m.name}</option>)}
-                                </select>
+                                    <ComboboxTrigger className="w-full" disabled={!formData.brandId}>
+                                        <ComboboxValue placeholder="Seleccionar...">
+                                            {filteredModels.find(m => m.id === formData.modelId)?.name || 'Seleccionar...'}
+                                        </ComboboxValue>
+                                    </ComboboxTrigger>
+                                    <ComboboxContent>
+                                        <ComboboxInput placeholder="Buscar modelo..." />
+                                        <ComboboxList>
+                                            <ComboboxEmpty>No encontrado</ComboboxEmpty>
+                                            {filteredModels.map(m => (
+                                                <ComboboxItem key={m.id} value={m.id}>
+                                                    {m.name}
+                                                </ComboboxItem>
+                                            ))}
+                                        </ComboboxList>
+                                    </ComboboxContent>
+                                </Combobox>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label>Año <span className="text-red-500">*</span></Label>
                                 <Input name="year" type="number" value={formData.year} onChange={handleChange} />
@@ -238,54 +299,70 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
                             <CardTitle>Detalles de Costos</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Concepto</TableHead>
-                                        <TableHead className="w-[120px]">Monto</TableHead>
-                                        <TableHead className="w-[50px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {costs.map((cost, idx) => (
-                                        <TableRow key={idx}>
-                                            <TableCell>
-                                                <select
-                                                    className="flex h-9 w-full rounded-md border border-input bg-transparent text-foreground px-3 py-1 text-sm shadow-sm"
-                                                    value={cost.conceptId}
-                                                    onChange={(e) => updateCost(idx, 'conceptId', e.target.value)}
-                                                >
-                                                    {data.costConcepts.map(c => <option key={c.id} value={c.id} className="bg-popover text-popover-foreground">{c.name}</option>)}
-                                                </select>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Input
-                                                    type="text"
-                                                    value={cost.amount > 0 ? cost.amount.toLocaleString('es-PY') : ''}
-                                                    onChange={(e) => {
-                                                        const val = Number(e.target.value.replace(/\./g, '').replace(/,/g, ''))
-                                                        updateCost(idx, 'amount', isNaN(val) ? 0 : val)
-                                                    }}
-                                                    className="h-9"
-                                                    placeholder="0"
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Button variant="ghost" size="icon" onClick={() => removeCost(idx)}>
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Concepto</TableHead>
+                                            <TableHead className="w-[120px]">Monto</TableHead>
+                                            <TableHead className="w-[50px]"></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {costs.map((cost, idx) => (
+                                            <TableRow key={idx}>
+                                                <TableCell>
+                                                    <Combobox
+                                                        value={cost.conceptId}
+                                                        onValueChange={(value) => updateCost(idx, 'conceptId', value || '')}
+                                                    >
+                                                        <ComboboxTrigger className="w-full h-9">
+                                                            <ComboboxValue placeholder="Concepto">
+                                                                {data.costConcepts.find(c => c.id === cost.conceptId)?.name || 'Concepto'}
+                                                            </ComboboxValue>
+                                                        </ComboboxTrigger>
+                                                        <ComboboxContent>
+                                                            <ComboboxInput placeholder="Buscar..." />
+                                                            <ComboboxList>
+                                                                <ComboboxEmpty>No encontrado</ComboboxEmpty>
+                                                                {data.costConcepts.map(c => (
+                                                                    <ComboboxItem key={c.id} value={c.id}>
+                                                                        {c.name}
+                                                                    </ComboboxItem>
+                                                                ))}
+                                                            </ComboboxList>
+                                                        </ComboboxContent>
+                                                    </Combobox>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input
+                                                        type="text"
+                                                        value={cost.amount > 0 ? cost.amount.toLocaleString('es-PY') : ''}
+                                                        onChange={(e) => {
+                                                            const val = Number(e.target.value.replace(/\./g, '').replace(/,/g, ''))
+                                                            updateCost(idx, 'amount', isNaN(val) ? 0 : val)
+                                                        }}
+                                                        className="h-9"
+                                                        placeholder="0"
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Button variant="ghost" size="icon" onClick={() => removeCost(idx)}>
+                                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        <TableRow>
+                                            <TableCell colSpan={3}>
+                                                <Button variant="outline" size="sm" className="w-full" onClick={handleAddCost}>
+                                                    <Plus className="mr-2 h-4 w-4" /> Agregar Costo
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
-                                    <TableRow>
-                                        <TableCell colSpan={3}>
-                                            <Button variant="outline" size="sm" className="w-full" onClick={handleAddCost}>
-                                                <Plus className="mr-2 h-4 w-4" /> Agregar Costo
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
+                                    </TableBody>
+                                </Table>
+                            </div>
 
                             <Separator />
 
@@ -313,6 +390,8 @@ export function NewVehicleFormComplex({ data }: { data: ParametricData }) {
                             </div>
                         </CardContent>
                     </Card>
+
+                    <VehiclePaymentPlanManager vehiclePrice={listPrice} />
 
                     <Button className="w-full text-lg h-12" onClick={handleSubmit} disabled={isSubmitting}>
                         {isSubmitting ? "Guardando..." : "GUARDAR COMPRA"}

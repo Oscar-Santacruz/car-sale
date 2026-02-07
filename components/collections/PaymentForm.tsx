@@ -1,5 +1,7 @@
 'use client'
 
+import { toast } from "sonner"
+
 import { useState, useEffect, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -10,6 +12,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { CheckCircle, FileText, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Receipt } from "./Receipt"
+import {
+    Combobox,
+    ComboboxTrigger,
+    ComboboxValue,
+    ComboboxInput,
+    ComboboxContent,
+    ComboboxList,
+    ComboboxItem,
+    ComboboxEmpty,
+} from "@/components/ui/combobox"
 
 type Installment = {
     id: string
@@ -48,6 +60,9 @@ type PaymentFormProps = {
     returnUrl?: string
 }
 
+type PaymentMethodOption = { value: string; label: string }
+type BankAccountOption = { value: string; label: string }
+
 export function PaymentForm({ installment, settings, bankAccounts, onSuccess, onCancel, returnUrl }: PaymentFormProps) {
     const router = useRouter()
     const receiptRef = useRef<HTMLDivElement>(null)
@@ -56,8 +71,8 @@ export function PaymentForm({ installment, settings, bankAccounts, onSuccess, on
     const [paymentAmount, setPaymentAmount] = useState<number>(0)
     const [penaltyAmount, setPenaltyAmount] = useState<number>(0)
     const [comment, setComment] = useState("")
-    const [paymentMethod, setPaymentMethod] = useState("cash")
-    const [selectedBankAccount, setSelectedBankAccount] = useState("")
+    const [paymentMethod, setPaymentMethod] = useState<string>("cash")
+    const [selectedBankAccount, setSelectedBankAccount] = useState<BankAccountOption | null>(null)
     const [isProcessing, setIsProcessing] = useState(false)
     const [lastPayment, setLastPayment] = useState<any>(null)
 
@@ -97,18 +112,21 @@ export function PaymentForm({ installment, settings, bankAccounts, onSuccess, on
                 installmentId: installment.id,
                 saleId: installment.sales.id,
                 amount: paymentAmount,
-                paymentMethod,
-                referenceNumber: "",
+                paymentMethod: paymentMethod,
                 penaltyAmount,
                 comment,
-                bankAccountId: paymentMethod === 'transfer' ? selectedBankAccount : undefined
+                referenceNumber: "",
+                bankAccountId: selectedBankAccount?.value || undefined,
             }) as any
 
             setLastPayment(result.payment)
+            toast.success("Pago registrado correctamente")
             if (onSuccess) onSuccess(result)
 
+
         } catch (error: any) {
-            alert(error.message)
+            console.error(error)
+            toast.error(error.message || "Error al procesar el pago")
         } finally {
             setIsProcessing(false)
         }
@@ -263,33 +281,64 @@ export function PaymentForm({ installment, settings, bankAccounts, onSuccess, on
 
                     <div className="space-y-2">
                         <Label>Método de Pago</Label>
-                        <select
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        <Combobox
                             value={paymentMethod}
-                            onChange={(e) => setPaymentMethod(e.target.value)}
+                            onValueChange={(value) => value && setPaymentMethod(value)}
                         >
-                            <option value="cash">Efectivo</option>
-                            <option value="transfer">Transferencia</option>
-                            <option value="check">Cheque</option>
-                            <option value="pos">Tarjeta (POS)</option>
-                        </select>
+                            <ComboboxTrigger className="w-full">
+                                <ComboboxValue placeholder="Seleccionar método">
+                                    {paymentMethod === "cash" && "Efectivo"}
+                                    {paymentMethod === "transfer" && "Transferencia"}
+                                    {paymentMethod === "check" && "Cheque"}
+                                    {paymentMethod === "pos" && "Tarjeta (POS)"}
+                                    {!paymentMethod && "Seleccionar método"}
+                                </ComboboxValue>
+                            </ComboboxTrigger>
+                            <ComboboxContent>
+                                <ComboboxInput placeholder="Buscar..." />
+                                <ComboboxList>
+                                    <ComboboxEmpty>No se encontraron métodos</ComboboxEmpty>
+                                    <ComboboxItem value="cash">Efectivo</ComboboxItem>
+                                    <ComboboxItem value="transfer">Transferencia</ComboboxItem>
+                                    <ComboboxItem value="check">Cheque</ComboboxItem>
+                                    <ComboboxItem value="pos">Tarjeta (POS)</ComboboxItem>
+                                </ComboboxList>
+                            </ComboboxContent>
+                        </Combobox>
                     </div>
 
                     {paymentMethod === 'transfer' && (
                         <div className="space-y-2">
                             <Label>Cuenta Bancaria Destino</Label>
-                            <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                value={selectedBankAccount}
-                                onChange={(e) => setSelectedBankAccount(e.target.value)}
+                            <Combobox
+                                value={selectedBankAccount?.value || ''}
+                                onValueChange={(value) => {
+                                    const account = bankAccounts.find(acc => acc.id === value)
+                                    if (account) {
+                                        setSelectedBankAccount({
+                                            value: account.id,
+                                            label: `${account.bank_name} - ${account.account_number} (${account.currency})`
+                                        })
+                                    }
+                                }}
                             >
-                                <option value="">Seleccione una cuenta...</option>
-                                {bankAccounts.map((acc: any) => (
-                                    <option key={acc.id} value={acc.id}>
-                                        {acc.bank_name} - {acc.account_number} ({acc.currency})
-                                    </option>
-                                ))}
-                            </select>
+                                <ComboboxTrigger className="w-full">
+                                    <ComboboxValue placeholder="Seleccione una cuenta">
+                                        {selectedBankAccount?.label || 'Seleccione una cuenta'}
+                                    </ComboboxValue>
+                                </ComboboxTrigger>
+                                <ComboboxContent>
+                                    <ComboboxInput placeholder="Buscar..." />
+                                    <ComboboxList>
+                                        <ComboboxEmpty>No se encontraron cuentas</ComboboxEmpty>
+                                        {bankAccounts.map(acc => (
+                                            <ComboboxItem key={acc.id} value={acc.id}>
+                                                {acc.bank_name} - {acc.account_number} ({acc.currency})
+                                            </ComboboxItem>
+                                        ))}
+                                    </ComboboxList>
+                                </ComboboxContent>
+                            </Combobox>
                         </div>
                     )}
                 </div>

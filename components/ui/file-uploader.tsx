@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { toast } from "sonner"
 import { Input } from '@/components/ui/input'
 import { Upload, X, Loader2, FileIcon, ImageIcon } from 'lucide-react'
 import Image from 'next/image'
@@ -73,7 +74,7 @@ export function FileUploader({ bucket, onUploadComplete, onBatchUploadComplete, 
             clearFiles()
         } catch (error: any) {
             console.error('Error uploading file:', error)
-            alert('Error al subir el archivo: ' + error.message)
+            toast.error('Error al subir el archivo: ' + error.message)
         } finally {
             setUploading(false)
         }

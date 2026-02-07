@@ -1,18 +1,19 @@
 import { Button } from "@/components/ui/button"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
-import { Plus, Car } from "lucide-react"
+import { Plus, Upload } from "lucide-react"
+import { InventoryList } from "@/components/inventory/InventoryList"
+import { VehicleFilters } from "@/components/inventory/VehicleFilters"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { createServerClient } from "@supabase/ssr"
+import { getParametricData } from "@/app/settings-actions"
 
-async function getVehicles() {
+// Helper to safely get string from searchParams
+const getString = (val: string | string[] | undefined) => {
+    if (!val) return undefined
+    return Array.isArray(val) ? val[0] : val
+}
+
+async function getVehicles(searchParams: { [key: string]: string | string[] | undefined }) {
     const cookieStore = await cookies()
 
     const supabase = createServerClient(
@@ -27,76 +28,74 @@ async function getVehicles() {
         }
     )
 
-    const { data } = await supabase
+    let query = supabase
         .from('vehicles')
         .select('*')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
+
+    // Apply filters safely
+    const brandId = getString(searchParams.brandId)
+    if (brandId) query = query.eq('brand_id', brandId)
+
+    const modelId = getString(searchParams.modelId)
+    if (modelId) query = query.eq('model_id', modelId)
+
+    const categoryId = getString(searchParams.categoryId)
+    if (categoryId) query = query.eq('category_id', categoryId)
+
+    const typeId = getString(searchParams.typeId)
+    if (typeId) query = query.eq('type_id', typeId)
+
+    const status = getString(searchParams.status)
+    if (status && status !== 'all') query = query.eq('status', status)
+
+    const minYear = getString(searchParams.minYear)
+    if (minYear) query = query.gte('year', minYear)
+
+    const maxYear = getString(searchParams.maxYear)
+    if (maxYear) query = query.lte('year', maxYear)
+
+    const minPrice = getString(searchParams.minPrice)
+    if (minPrice) query = query.gte('list_price', minPrice)
+
+    const maxPrice = getString(searchParams.maxPrice)
+    if (maxPrice) query = query.lte('list_price', maxPrice)
+
+    const { data } = await query
     return data || []
 }
 
-export default async function InventoryPage() {
-    const vehicles = await getVehicles()
+interface InventoryPageProps {
+    searchParams: Promise<{ [key: string]: string | undefined }>
+}
+
+export default async function InventoryPage({ searchParams }: InventoryPageProps) {
+    const params = await searchParams
+    const vehicles = await getVehicles(params)
+    const parametricData = await getParametricData()
 
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">Inventario</h2>
-                <Link href="/inventory/new">
-                    <Button>
-                        <Plus className="mr-2 h-4 w-4" /> Nuevo Vehículo
-                    </Button>
-                </Link>
+                <div className="flex gap-2">
+                    <Link href="/inventory/bulk-import">
+                        <Button variant="outline">
+                            <Upload className="mr-2 h-4 w-4" /> Carga Masiva
+                        </Button>
+                    </Link>
+                    <Link href="/inventory/new">
+                        <Button>
+                            <Plus className="mr-2 h-4 w-4" /> Nuevo Vehículo
+                        </Button>
+                    </Link>
+                </div>
             </div>
-            <div className="rounded-md border bg-card">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>COD</TableHead>
-                            <TableHead>Vehículo</TableHead>
-                            <TableHead>Año</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead className="text-right">Precio Lista</TableHead>
-                            <TableHead className="text-right">Acciones</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {vehicles.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                                    No hay vehículos en inventario.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            vehicles.map((car) => (
-                                <TableRow key={car.id}>
-                                    <TableCell className="font-medium">{car.cod || 'N/A'}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center">
-                                            <Car className="mr-2 h-4 w-4 text-muted-foreground" />
-                                            {car.brand} {car.model}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>{car.year}</TableCell>
 
-                                    <TableCell>
-                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${car.status === "available" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                                            }`}>
-                                            {car.status === 'available' ? 'Disponible' : (car.status === 'sold' ? 'Vendido' : car.status)}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="text-right font-bold text-green-700">Gs. {Number(car.list_price).toLocaleString('es-PY')}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Link href={`/inventory/${car.id}`}>
-                                            <Button variant="ghost" size="sm">Ver</Button>
-                                        </Link>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+            <VehicleFilters data={parametricData} />
+
+            <InventoryList vehicles={vehicles} />
         </div>
     )
 }

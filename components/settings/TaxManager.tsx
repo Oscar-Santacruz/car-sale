@@ -7,6 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Trash2, Pencil, Check, X } from "lucide-react"
 
+import { toast } from "sonner"
+
 interface Tax {
     id: string
     name: string
@@ -16,7 +18,7 @@ interface Tax {
 interface TaxManagerProps {
     taxes: Tax[]
     onSave: (name: string, rate: number, id?: string) => Promise<void>
-    onDelete: (id: string) => Promise<void>
+    onDelete: (id: string) => Promise<any>
 }
 
 export function TaxManager({ taxes, onSave, onDelete }: TaxManagerProps) {
@@ -67,10 +69,26 @@ export function TaxManager({ taxes, onSave, onDelete }: TaxManagerProps) {
 
     const handleDelete = async (id: string) => {
         if (!confirm("¿Está seguro de eliminar este impuesto?")) return
+        setIsSubmitting(true)
         try {
-            await onDelete(id)
-        } catch (error) {
+            const result = await onDelete(id)
+            if (result && typeof result === 'object') {
+                if (result.success) {
+                    toast.success(result.message || 'Impuesto eliminado correctamente')
+                } else {
+                    toast.error(result.message || 'Error al eliminar', {
+                        description: result.error ? `Causa: ${result.message}` : undefined,
+                        duration: 5000
+                    })
+                }
+            } else {
+                toast.success('Impuesto eliminado correctamente')
+            }
+        } catch (error: any) {
             console.error(error)
+            toast.error(error.message || 'Error al eliminar')
+        } finally {
+            setIsSubmitting(false)
         }
     }
 

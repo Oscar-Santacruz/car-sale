@@ -123,75 +123,7 @@ export async function createSaleAction(saleData: {
     redirect('/sales')
 }
 
-export async function deleteSaleAction(saleId: string) {
-    // Only Admin can delete sales
-    const supabase = await createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                get(name: string) {
-                    return '' // server action context handles this
-                },
-            },
-        }
-    )
-
-    // We need cookie store properly
-    const cookieStore = await cookies()
-    const supabaseClient = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value
-                },
-            },
-        }
-    )
-
-    // Check permissions
-    const { data: { user } } = await supabaseClient.auth.getUser()
-    if (!user) throw new Error("Unauthorized")
-
-    // Check if user is admin - manual check since we are in a text replacement
-    // Better to use permission lib if available, assuming it is imported or available
-    // importing requireAdmin would be better.
-
-    // START DB OPERATIONS
-    // 1. Get sale to know vehicle_id and details for log
-    const { data: sale } = await supabaseClient.from('sales').select('*, clients(name), vehicles(brand, model, plate)').eq('id', saleId).single()
-    if (!sale) throw new Error("Sale not found")
-
-    // Log BEFORE deletion
-    await logAuditAction(
-        user.id,
-        'DELETE_SALE',
-        'sales',
-        saleId,
-        {
-            sale_date: sale.sale_date,
-            amount: sale.total_amount,
-            client: sale.clients?.name,
-            vehicle: `${sale.vehicles?.brand} ${sale.vehicles?.model} (${sale.vehicles?.plate})`
-        }
-    )
-
-    // 2. Delete Payments (Cascade usually handles this, but being explicit is safer if no FK cascade)
-    await supabaseClient.from('payments').delete().eq('sale_id', saleId)
-
-    // 3. Delete Installments
-    await supabaseClient.from('installments').delete().eq('sale_id', saleId)
-
-    // 4. Delete Sale
-    const { error: deleteError } = await supabaseClient.from('sales').delete().eq('id', saleId)
-    if (deleteError) throw deleteError
-
-    // 5. Update Vehicle Status -> 'available'
-    if (sale.vehicle_id) {
-        await supabaseClient.from('vehicles').update({ status: 'available' }).eq('id', sale.vehicle_id)
-    }
-
-    redirect('/sales')
-}
+// Export deletion actions with validation and audit
+import { deleteSaleAction as deleteSaleActionFn, deletePaymentAction as deletePaymentActionFn } from './deletion-actions'
+export async function deleteSaleAction(id: string, reason?: string) { return deleteSaleActionFn(id, reason) }
+export async function deletePaymentAction(id: string, reason?: string) { return deletePaymentActionFn(id, reason) }

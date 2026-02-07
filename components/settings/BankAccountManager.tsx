@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Plus, Pencil, Trash2, Building2 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -38,7 +39,7 @@ interface BankAccount {
 interface BankAccountManagerProps {
     items: BankAccount[]
     onSave: (data: Omit<BankAccount, 'id'>, id?: string) => Promise<void>
-    onDelete: (id: string) => Promise<void>
+    onDelete: (id: string) => Promise<any>
 }
 
 export function BankAccountManager({ items, onSave, onDelete }: BankAccountManagerProps) {
@@ -76,7 +77,7 @@ export function BankAccountManager({ items, onSave, onDelete }: BankAccountManag
             setIsDialogOpen(false)
         } catch (error) {
             console.error(error)
-            alert("Error al guardar")
+            toast.error("Error al guardar")
         }
     }
 
@@ -84,10 +85,22 @@ export function BankAccountManager({ items, onSave, onDelete }: BankAccountManag
         if (!confirm("¿Está seguro de eliminar esta cuenta?")) return
         setIsDeleting(id)
         try {
-            await onDelete(id)
-        } catch (error) {
+            const result = await onDelete(id)
+            if (result && typeof result === 'object') {
+                if (result.success) {
+                    toast.success(result.message || 'Cuenta eliminada correctamente')
+                } else {
+                    toast.error(result.message || 'Error al eliminar', {
+                        description: result.error ? `Causa: ${result.message}` : undefined,
+                        duration: 5000
+                    })
+                }
+            } else {
+                toast.success('Cuenta eliminada correctamente')
+            }
+        } catch (error: any) {
             console.error(error)
-            alert("Error al eliminar")
+            toast.error(error.message || 'Error al eliminar')
         } finally {
             setIsDeleting(null)
         }

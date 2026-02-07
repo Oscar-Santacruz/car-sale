@@ -271,7 +271,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     return (
         <div className="flex-1 space-y-4">
             <div className="flex flex-col md:flex-row items-center justify-between space-y-2 md:space-y-0">
-                <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+                <div className="flex items-center gap-4">
+                    <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+                    <a href="/dashboard-v2" className="text-sm bg-primary/10 text-primary px-3 py-1 rounded-full hover:bg-primary/20 transition-colors font-medium border border-primary/20">
+                        ✨ Ir al Nuevo Dashboard V2
+                    </a>
+                </div>
                 <MonthYearSelector
                     currentYear={selectedYear}
                     currentMonth={selectedMonth}
@@ -279,7 +284,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
 
             {/* KPI Principales */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">

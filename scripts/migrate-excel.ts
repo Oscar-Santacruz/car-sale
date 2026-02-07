@@ -8,9 +8,18 @@ dotenv.config({ path: '.env.local' });
 const sqlFile = path.join(process.cwd(), 'scripts', 'migration.sql');
 const filePath = path.join(process.cwd(), 'planilla 06 de junio (1).xlsm');
 
-function escape(str: any): string {
-    if (str === null || str === undefined || str === '') return 'NULL';
-    return `'${String(str).replace(/'/g, "''").trim()}'`;
+/**
+ * Safely format values for SQL queries to prevent basic SQL injection.
+ * For a production migration tool, consider using parameterized queries or a proper SQL builder.
+ */
+function formatSqlValue(val: any): string {
+    if (val === null || val === undefined || val === '') return 'NULL';
+    if (typeof val === 'number') return String(val);
+    if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+
+    // Escape single quotes by doubling them
+    const escaped = String(val).replace(/'/g, "''").trim();
+    return `'${escaped}'`;
 }
 
 // Helper to get Org ID
@@ -58,21 +67,23 @@ async function main() {
             const ci = row[1] ? String(row[1]).trim() : null;
             if (!ci) continue;
 
-            const name = escape(row[3]);
-            const ruc = escape(row[2]);
-            const address = escape(row[4]);
-            const phone = escape(row[5]);
-            const email = escape(row[6]);
-            const details = escape(row[10]);
+            const name = formatSqlValue(row[3]);
+            const ruc = formatSqlValue(row[2]);
+            const address = formatSqlValue(row[4]);
+            const phone = formatSqlValue(row[5]);
+            const email = formatSqlValue(row[6]);
+            const details = formatSqlValue(row[10]);
+
+            const ciEsc = formatSqlValue(ci);
 
             sqlStatements.push(`
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM clients WHERE ci = '${ci}') THEN
-        UPDATE clients SET name=${name}, phone=${phone}, email=${email}, ruc=${ruc}, address=${address}, details=${details} WHERE ci = '${ci}';
+    IF EXISTS (SELECT 1 FROM clients WHERE ci = ${ciEsc}) THEN
+        UPDATE clients SET name=${name}, phone=${phone}, email=${email}, ruc=${ruc}, address=${address}, details=${details} WHERE ci = ${ciEsc};
     ELSE
         INSERT INTO clients (organization_id, ci, name, ruc, address, phone, email, details)
-        VALUES ('${orgId}', '${ci}', ${name}, ${ruc}, ${address}, ${phone}, ${email}, ${details});
+        VALUES ('${orgId}', ${ciEsc}, ${name}, ${ruc}, ${address}, ${phone}, ${email}, ${details});
     END IF;
 END $$;
 `);
@@ -92,20 +103,22 @@ END $$;
             const cod = row[0];
             if (!cod) continue;
 
-            const brandName = escape(String(row[1] || 'Unknown').trim().toUpperCase());
-            const modelName = escape(String(row[2] || 'Unknown').trim().toUpperCase());
+            const brandName = formatSqlValue(String(row[1] || 'Unknown').trim().toUpperCase());
+            const modelName = formatSqlValue(String(row[2] || 'Unknown').trim().toUpperCase());
 
             const statusRaw = String(row[19] || '').trim();
             const status = (statusRaw === 'SOLD' || statusRaw === 'VENDIDO') ? 'sold' : 'available';
+            const statusEsc = formatSqlValue(status);
 
             const year = escapeNum(row[3]);
-            const plate = escape(row[4]);
-            const color = escape(row[5]);
-            const vin = escape(row[6]);
-            const motor = escape(row[7]);
-            const details = escape(row[8]);
+            const plate = formatSqlValue(row[4]);
+            const color = formatSqlValue(row[5]);
+            const vin = formatSqlValue(row[6]);
+            const motor = formatSqlValue(row[7]);
+            const details = formatSqlValue(row[8]);
             const listPrice = escapeNum(row[10]);
             const totalCost = escapeNum(row[11]);
+            const codEsc = formatSqlValue(cod);
 
             sqlStatements.push(`
 DO $$
@@ -130,23 +143,23 @@ BEGIN
     END IF;
     
     -- Ensure Vehicle
-    SELECT id INTO v_vehicle_id FROM vehicles WHERE cod = '${cod}' LIMIT 1;
+    SELECT id INTO v_vehicle_id FROM vehicles WHERE cod = ${codEsc} LIMIT 1;
     IF v_vehicle_id IS NULL THEN
         INSERT INTO vehicles (organization_id, cod, brand_id, model_id, year, plate, color, chassis_number, motor_number, details, list_price, total_cost, status, brand, model)
-        VALUES (v_org_id, '${cod}', v_brand_id, v_model_id, ${year}, ${plate}, ${color}, ${vin}, ${motor}, ${details}, ${listPrice}, ${totalCost}, '${status}', ${brandName}, ${modelName})
+        VALUES (v_org_id, ${codEsc}, v_brand_id, v_model_id, ${year}, ${plate}, ${color}, ${vin}, ${motor}, ${details}, ${listPrice}, ${totalCost}, ${statusEsc}, ${brandName}, ${modelName})
         RETURNING id INTO v_vehicle_id;
     ELSE
-        UPDATE vehicles SET status = '${status}', list_price = ${listPrice}, total_cost = ${totalCost} WHERE id = v_vehicle_id;
+        UPDATE vehicles SET status = ${statusEsc}, list_price = ${listPrice}, total_cost = ${totalCost} WHERE id = v_vehicle_id;
     END IF;
 
     -- Sales Logic
-    IF '${status}' = 'sold' THEN
+    IF ${statusEsc} = 'sold' THEN
 `);
 
             if (status === 'sold') {
                 const ci = row[13] ? String(row[13]).trim() : null;
                 if (ci) {
-                    const saleDate = escape(row[9] || new Date().toISOString());
+                    const saleDate = formatSqlValue(row[9] || new Date().toISOString());
                     const downPayment = escapeNum(row[15]);
                     const balance = escapeNum(row[16]);
                     const totalAmount = escapeNum(row[17] || row[10]);
@@ -161,10 +174,10 @@ BEGIN
                     } else if (rawDate) {
                         firstDueDateStr = String(rawDate);
                     }
-                    const firstDueDateEscaped = escape(firstDueDateStr);
+                    const firstDueDateEscaped = formatSqlValue(firstDueDateStr);
 
                     sqlStatements.push(`
-        SELECT id INTO v_client_id FROM clients WHERE ci = '${ci}' LIMIT 1;
+        SELECT id INTO v_client_id FROM clients WHERE ci = ${formatSqlValue(ci)} LIMIT 1;
         
         IF v_client_id IS NOT NULL THEN
             SELECT id INTO v_sale_id FROM sales WHERE vehicle_id = v_vehicle_id LIMIT 1;

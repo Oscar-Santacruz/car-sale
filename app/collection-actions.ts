@@ -4,6 +4,10 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
+// Export deletion action
+import { deletePaymentAction as deletePaymentActionFn } from './deletion-actions'
+export async function deletePaymentAction(id: string, reason?: string) { return deletePaymentActionFn(id, reason) }
+
 export async function getClientPendingInstallments(clientId: string) {
     const cookieStore = await cookies()
     const supabase = createServerClient(

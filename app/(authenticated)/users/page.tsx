@@ -1,5 +1,5 @@
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
-import { getUsersAction, updateUserRoleAction, deleteUserAction } from '@/app/user-actions'
+import { getUsersAction, updateUserRoleAction, deleteUserAction, adminResetUserPasswordAction, setTemporaryPasswordAction } from '@/app/user-actions'
 import { UserManagementTable } from '@/components/users/UserManagementTable'
 import { isAdmin } from '@/lib/permissions'
 

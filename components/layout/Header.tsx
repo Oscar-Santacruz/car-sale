@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/providers/auth-provider"
 import { Menu, LogOut } from "lucide-react"
-import { ModeToggle } from "@/components/mode-toggle"
+
 
 export function Header({ onMobileMenuOpen }: { onMobileMenuOpen?: () => void }) {
     const { user, signOut } = useAuth()
@@ -27,7 +27,7 @@ export function Header({ onMobileMenuOpen }: { onMobileMenuOpen?: () => void }) 
                     />
                 </div>
                 <div className="ml-auto flex items-center gap-3">
-                    <ModeToggle />
+
                     <span className="text-sm text-muted-foreground hidden sm:inline">
                         {user?.email || 'Usuario'}
                     </span>

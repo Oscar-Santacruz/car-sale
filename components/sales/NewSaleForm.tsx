@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { calculateAmortizationSchedule } from "@/lib/financing"
 import { Trash2, Plus } from "lucide-react"
 import { createSaleAction } from "@/app/sales-actions"
+import { getVehiclePaymentPlansAction } from "@/app/vehicle-payment-plan-actions"
+import { DatePicker } from "@/components/ui/date-picker"
 
 type Client = {
     id: string;
@@ -51,19 +54,44 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
     const [refuerzos, setRefuerzos] = React.useState<{ date: string, amount: number }[]>([])
     const [isSubmitting, setIsSubmitting] = React.useState(false)
     const [paymentType, setPaymentType] = React.useState<'contado' | 'cuotas'>('contado')
+    const [paymentPlans, setPaymentPlans] = React.useState<any[]>([])
+    const [selectedPlanId, setSelectedPlanId] = React.useState("")
 
     // Initial Payment Details
     const [initialPaymentMethod, setInitialPaymentMethod] = React.useState('cash')
     const [selectedBankAccountId, setSelectedBankAccountId] = React.useState("")
 
     // Handlers
-    const handleVehicleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const handleVehicleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const vId = e.target.value
         setVehicleId(vId)
         const vehicle = vehicles.find(v => v.id === vId)
         if (vehicle) {
             setPrice(vehicle.list_price)
             setDownPayment(vehicle.list_price * 0.2) // Default 20% down
+        }
+        // Fetch payment plans for this vehicle
+        if (vId) {
+            const plans = await getVehiclePaymentPlansAction(vId)
+            setPaymentPlans(plans)
+            setSelectedPlanId("") // Reset selection
+        } else {
+            setPaymentPlans([])
+        }
+    }
+
+    const handleLoadPaymentPlan = () => {
+        const plan = paymentPlans.find(p => p.id === selectedPlanId)
+        if (!plan) return
+
+        setMonths(plan.months)
+        setInterestRate(plan.annual_interest_rate)
+
+        // Set down payment based on plan suggestion
+        if (plan.suggested_down_payment) {
+            setDownPayment(plan.suggested_down_payment)
+        } else if (plan.suggested_down_payment_percentage) {
+            setDownPayment(price * (plan.suggested_down_payment_percentage / 100))
         }
     }
 
@@ -114,7 +142,7 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
 
     const handleSave = async () => {
         if (!clientId || !vehicleId) {
-            alert("Seleccione cliente y vehículo")
+            toast.warning("Seleccione cliente y vehículo")
             return
         }
         setIsSubmitting(true)
@@ -137,13 +165,13 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
             if (e.message === 'NEXT_REDIRECT' || e.message.includes('NEXT_REDIRECT')) {
                 return; // Redirecting...
             }
-            alert("Error: " + e.message)
+            toast.error("Error: " + e.message)
             setIsSubmitting(false)
         }
     }
 
     return (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
             {/* LEFT COLUMN: Inputs */}
             <div className="space-y-6">
                 <Card>
@@ -203,13 +231,13 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
                                 <option value="">Seleccionar Vehículo</option>
                                 {vehicles.map(v => (
                                     <option key={v.id} value={v.id}>
-                                        {v.brand} {v.model} {v.year} - Gs. {v.list_price.toLocaleString('es-PY')}
+                                        {v.brand} {v.model} {v.year} - Gs. {v.list_price.toLocaleString('es-PY', { maximumFractionDigits: 0 })}
                                     </option>
                                 ))}
                             </select>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Precio Venta (Gs.) <span className="text-red-500">*</span></Label>
                                 <Input
@@ -237,9 +265,41 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
                         <div className="rounded-md bg-muted p-4">
                             <div className="flex justify-between text-sm font-medium">
                                 <span>Saldo a Financiar:</span>
-                                <span className="text-xl font-bold">Gs. {balance.toLocaleString('es-PY')}</span>
+                                <span className="text-xl font-bold">Gs. {balance.toLocaleString('es-PY', { maximumFractionDigits: 0 })}</span>
                             </div>
                         </div>
+
+                        {/* Payment Plan Template Selector */}
+                        {paymentType === 'cuotas' && paymentPlans.length > 0 && (
+                            <div className="border rounded-md p-4 bg-blue-50 dark:bg-blue-950/20 space-y-3">
+                                <Label className="font-semibold text-blue-900 dark:text-blue-100">Cargar Plan Predefinido</Label>
+                                <div className="flex gap-2">
+                                    <select
+                                        className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        value={selectedPlanId}
+                                        onChange={(e) => setSelectedPlanId(e.target.value)}
+                                    >
+                                        <option value="">Seleccionar plan...</option>
+                                        {paymentPlans.map(plan => (
+                                            <option key={plan.id} value={plan.id}>
+                                                {plan.name} ({plan.months} meses, {plan.annual_interest_rate}% interés)
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleLoadPaymentPlan}
+                                        disabled={!selectedPlanId}
+                                    >
+                                        Cargar
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Selecciona un plan para auto-completar los campos de financiamiento. Puedes personalizar después.
+                                </p>
+                            </div>
+                        )}
 
                         {/* Payment Details Section */}
                         <div className="border-t pt-4">
@@ -295,7 +355,7 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
                                 <CardTitle>Configuración de Plan</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="space-y-2">
                                         <Label>Plazo (Meses)</Label>
                                         <Input
@@ -314,10 +374,9 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Primer Venc. <span className="text-red-500">*</span></Label>
-                                        <Input
-                                            type="date"
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
+                                        <DatePicker
+                                            date={startDate ? new Date(startDate + 'T00:00:00') : undefined}
+                                            setDate={(date) => setStartDate(date ? date.toISOString().split('T')[0] : "")}
                                         />
                                     </div>
                                 </div>
@@ -331,13 +390,12 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
                                     </div>
                                     {refuerzos.map((r, idx) => (
                                         <div key={idx} className="flex items-center gap-2">
-                                            <div className="w-40">
+                                            <div className="w-48">
                                                 <span className="text-xs text-muted-foreground mr-1">Fecha</span>
-                                                <Input
-                                                    type="date"
-                                                    className="h-8"
-                                                    value={r.date}
-                                                    onChange={(e) => updateRefuerzo(idx, 'date', e.target.value)}
+                                                <DatePicker
+                                                    size="sm"
+                                                    date={r.date ? new Date(r.date + 'T00:00:00') : undefined}
+                                                    setDate={(date) => updateRefuerzo(idx, 'date', date ? date.toISOString().split('T')[0] : "")}
                                                 />
                                             </div>
                                             <div className="flex-1">
@@ -378,11 +436,48 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
             {
                 paymentType === 'cuotas' && (
                     <div className="space-y-6">
+                        {/* Summary Card */}
+                        <Card className="bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/50">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base font-medium text-blue-900 dark:text-blue-100">Resumen del Plan</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Cuotas Summary */}
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-medium text-muted-foreground">Cuotas Mensuales</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-2xl font-bold">{months}</span>
+                                            <span className="text-xs text-muted-foreground">x</span>
+                                            <span className="text-xl font-bold text-primary">
+                                                Gs. {schedule.find(s => !s.isRefuerzo)?.installmentAmount.toLocaleString('es-PY', { maximumFractionDigits: 0 }) || 0}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Refuerzos Summary */}
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-medium text-muted-foreground">Refuerzos / Pagos Extra</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-2xl font-bold">{refuerzos.length}</span>
+                                            <span className="text-xs text-muted-foreground">x</span>
+                                            <span className="text-xl font-bold text-primary">
+                                                Gs. {refuerzos.reduce((sum, r) => sum + r.amount, 0).toLocaleString('es-PY', { maximumFractionDigits: 0 })}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Total Refuerzos
+                                        </p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
                         <Card className="h-full flex flex-col">
                             <CardHeader>
                                 <CardTitle>Tabla de Amortización (Proyección)</CardTitle>
                             </CardHeader>
-                            <CardContent className="flex-1">
+                            <CardContent className="flex-1 overflow-x-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -400,12 +495,12 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
                                                 <TableCell className="font-medium">{row.paymentNumber}</TableCell>
                                                 <TableCell>{row.dueDate.toLocaleDateString()}</TableCell>
                                                 <TableCell className="text-right font-bold">
-                                                    Gs. {row.installmentAmount.toLocaleString('es-PY')}
+                                                    Gs. {row.installmentAmount.toLocaleString('es-PY', { maximumFractionDigits: 0 })}
                                                     {row.isRefuerzo && <span className="ml-1 text-[10px] text-muted-foreground">(Ref)</span>}
                                                 </TableCell>
-                                                <TableCell className="text-right text-muted-foreground">Gs. {row.capital.toLocaleString('es-PY')}</TableCell>
-                                                <TableCell className="text-right text-muted-foreground">Gs. {row.interest.toLocaleString('es-PY')}</TableCell>
-                                                <TableCell className="text-right">Gs. {row.balance.toLocaleString('es-PY')}</TableCell>
+                                                <TableCell className="text-right text-muted-foreground">Gs. {row.capital.toLocaleString('es-PY', { maximumFractionDigits: 0 })}</TableCell>
+                                                <TableCell className="text-right text-muted-foreground">Gs. {row.interest.toLocaleString('es-PY', { maximumFractionDigits: 0 })}</TableCell>
+                                                <TableCell className="text-right">Gs. {row.balance.toLocaleString('es-PY', { maximumFractionDigits: 0 })}</TableCell>
                                             </TableRow>
                                         ))}
                                         {schedule.length === 0 && (
@@ -419,6 +514,7 @@ export function NewSaleForm({ clients, vehicles, bankAccounts = [] }: { clients:
                                 </Table>
                             </CardContent>
                         </Card>
+
 
                     </div >
                 )

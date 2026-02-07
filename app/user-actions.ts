@@ -102,3 +102,55 @@ export async function deleteUserAction(userId: string) {
 
     revalidatePath('/users')
 }
+
+// Admin: Send password reset email to user
+export async function adminResetUserPasswordAction(userId: string, userEmail: string) {
+    await requireAdmin()
+
+    const supabaseAdmin = getSupabaseAdmin()
+
+    // Send password reset email
+    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(userEmail, {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/reset-password`,
+    })
+
+    if (error) {
+        console.error('Error sending password reset:', error)
+        throw new Error('Error al enviar el correo de recuperación')
+    }
+
+    return { success: true }
+}
+
+// Admin: Set temporary password and force change
+export async function setTemporaryPasswordAction(userId: string, tempPassword: string) {
+    await requireAdmin()
+
+    const supabaseAdmin = getSupabaseAdmin()
+    const supabase = await getSupabase()
+
+    // Update user password
+    const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
+        userId,
+        { password: tempPassword }
+    )
+
+    if (passwordError) {
+        console.error('Error setting temporary password:', passwordError)
+        throw new Error('Error al establecer contraseña temporal')
+    }
+
+    // Set force_password_change flag
+    const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ force_password_change: true })
+        .eq('id', userId)
+
+    if (updateError) {
+        console.error('Error setting force_password_change:', updateError)
+        throw new Error('Error al configurar cambio forzado')
+    }
+
+    revalidatePath('/users')
+    return { success: true }
+}

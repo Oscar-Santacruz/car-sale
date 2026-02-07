@@ -7,7 +7,21 @@ import { CompanyProfileManager } from "./CompanyProfileManager"
 import { TaxManager } from "./TaxManager"
 import { OrganizationSettingsManager } from "./OrganizationSettingsManager"
 import { BankAccountManager } from "./BankAccountManager"
-import { saveSimpleItem, deleteItem, saveModel, saveTax, saveBankAccount } from "@/app/settings-actions"
+import {
+    saveSimpleItem,
+    saveModel,
+    saveTax,
+    saveBankAccount,
+    deleteBrandAction,
+    deleteModelAction,
+    deleteVehicleCategoryAction,
+    deleteVehicleTypeAction,
+    deleteCostConceptAction,
+    deletePaymentMethodAction,
+    deleteTaxAction,
+    deleteBankAccountAction,
+    deleteCreditorAction
+} from "@/app/settings-actions"
 
 interface SettingsTabsProps {
     data: {
@@ -74,25 +88,25 @@ export default function SettingsTabs({ data }: SettingsTabsProps) {
                             title="Marcas"
                             items={data.brands}
                             onSave={(name, id) => saveSimpleItem('brands', name, id)}
-                            onDelete={(id) => deleteItem('brands', id)}
+                            onDelete={(id) => deleteBrandAction(id)}
                         />
                         <ModelManager
                             models={data.models}
                             brands={data.brands}
                             onSave={(name, brandId, id) => saveModel(name, brandId, id)}
-                            onDelete={(id) => deleteItem('models', id)}
+                            onDelete={(id) => deleteModelAction(id)}
                         />
                         <SimpleCatalogManager
                             title="Condiciones / Familias"
                             items={data.categories}
                             onSave={(name, id) => saveSimpleItem('vehicle_categories', name, id)}
-                            onDelete={(id) => deleteItem('vehicle_categories', id)}
+                            onDelete={(id) => deleteVehicleCategoryAction(id)}
                         />
                         <SimpleCatalogManager
                             title="Tipos de Vehículo"
                             items={data.types}
                             onSave={(name, id) => saveSimpleItem('vehicle_types', name, id)}
-                            onDelete={(id) => deleteItem('vehicle_types', id)}
+                            onDelete={(id) => deleteVehicleTypeAction(id)}
                         />
                     </div>
                 )}
@@ -105,23 +119,23 @@ export default function SettingsTabs({ data }: SettingsTabsProps) {
                             title="Conceptos de Costo"
                             items={data.costConcepts}
                             onSave={(name, id) => saveSimpleItem('cost_concepts', name, id)}
-                            onDelete={(id) => deleteItem('cost_concepts', id)}
+                            onDelete={(id) => deleteCostConceptAction(id)}
                         />
                         <SimpleCatalogManager
                             title="Formas de Pago"
                             items={data.paymentMethods}
                             onSave={(name, id) => saveSimpleItem('payment_methods', name, id)}
-                            onDelete={(id) => deleteItem('payment_methods', id)}
+                            onDelete={(id) => deletePaymentMethodAction(id)}
                         />
                         <TaxManager
                             taxes={data.taxes}
                             onSave={(name, rate, id) => saveTax(name, rate, id)}
-                            onDelete={(id) => deleteItem('taxes', id)}
+                            onDelete={(id) => deleteTaxAction(id)}
                         />
                         <BankAccountManager
                             items={data.bankAccounts}
                             onSave={(formData, id) => saveBankAccount(formData, id)}
-                            onDelete={(id) => deleteItem('bank_accounts', id)}
+                            onDelete={(id) => deleteBankAccountAction(id)}
                         />
                     </div>
                 )}
@@ -132,7 +146,7 @@ export default function SettingsTabs({ data }: SettingsTabsProps) {
                             title="Acreedores"
                             items={data.creditors}
                             onSave={(name, id) => saveSimpleItem('creditors', name, id)}
-                            onDelete={(id) => deleteItem('creditors', id)}
+                            onDelete={(id) => deleteCreditorAction(id)}
                         />
                     </div>
                 )}

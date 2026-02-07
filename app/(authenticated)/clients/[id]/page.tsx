@@ -13,6 +13,8 @@ import { calculateDaysOverdue } from "@/lib/overdue-calculations"
 import { PermissionGuard } from "@/components/auth/PermissionGuard"
 import { DeactivateClientButton } from "@/components/clients/DeactivateClientButton"
 
+import { DeleteClientButton } from "@/components/clients/DeleteClientButton"
+
 async function getClient(id: string) {
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -27,7 +29,7 @@ async function getClient(id: string) {
         }
     )
 
-    const { data, error } = await supabase.from('clients').select('*').eq('id', id).single()
+    const { data, error } = await supabase.from('clients').select('*').eq('id', id).maybeSingle()
 
     if (error) {
         console.error("Error fetching client", error)
@@ -139,7 +141,10 @@ export default async function ClientDetailPage({ params }: PageProps) {
                         </Button>
                     </Link>
                     <PermissionGuard requiredRole="admin">
-                        <DeactivateClientButton clientId={client.id} />
+                        <div className="flex gap-2">
+                            <DeactivateClientButton clientId={client.id} />
+                            <DeleteClientButton clientId={client.id} />
+                        </div>
                     </PermissionGuard>
                 </div>
             </div>

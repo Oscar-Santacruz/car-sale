@@ -56,19 +56,22 @@ export async function middleware(request: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Protect all routes except login and auth callback
-    if (
-        !user &&
-        !request.nextUrl.pathname.startsWith('/login')
-    ) {
+    const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/auth/callback']
+    const isPublicRoute = publicRoutes.some(route =>
+        request.nextUrl.pathname.startsWith(route)
+    )
+
+    // Protect all routes except public ones
+    if (!user && !isPublicRoute) {
         // Redirect unauthenticated users to login page
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)
     }
 
-    // Redirect authenticated users from login to dashboard
-    if (user && request.nextUrl.pathname.startsWith('/login')) {
+    // Redirect authenticated users from login/auth routes to dashboard
+    // Exception: /reset-password if they need to change it
+    if (user && isPublicRoute && request.nextUrl.pathname !== '/reset-password') {
         const url = request.nextUrl.clone()
         url.pathname = '/dashboard'
         return NextResponse.redirect(url)

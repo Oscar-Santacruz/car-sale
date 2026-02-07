@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import { deactivateClientAction } from "@/app/actions"
 import { useTransition } from "react"
 
@@ -18,8 +19,9 @@ export function DeactivateClientButton({ clientId }: DeactivateClientButtonProps
             startTransition(async () => {
                 try {
                     await deactivateClientAction(clientId)
+                    toast.success("Cliente desactivado correctamente")
                 } catch (error) {
-                    alert("Error al desactivar el cliente")
+                    toast.error("Error al desactivar el cliente")
                 }
             })
         }

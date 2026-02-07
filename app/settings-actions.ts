@@ -4,6 +4,31 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 
+// Import deletion actions
+import {
+    deleteBrandAction as deleteBrandActionFn,
+    deleteModelAction as deleteModelActionFn,
+    deleteCostConceptAction as deleteCostConceptActionFn,
+    deleteVehicleCategoryAction as deleteVehicleCategoryActionFn,
+    deleteVehicleTypeAction as deleteVehicleTypeActionFn,
+    deletePaymentMethodAction as deletePaymentMethodActionFn,
+    deleteTaxAction as deleteTaxActionFn,
+    deleteBankAccountAction as deleteBankAccountActionFn,
+    deleteCreditorAction as deleteCreditorActionFn,
+    getDeletionAuditLog as getDeletionAuditLogFn
+} from './deletion-actions'
+
+export async function deleteBrandAction(id: string, reason?: string) { return deleteBrandActionFn(id, reason) }
+export async function deleteModelAction(id: string, reason?: string) { return deleteModelActionFn(id, reason) }
+export async function deleteCostConceptAction(id: string, reason?: string) { return deleteCostConceptActionFn(id, reason) }
+export async function deleteVehicleCategoryAction(id: string, reason?: string) { return deleteVehicleCategoryActionFn(id, reason) }
+export async function deleteVehicleTypeAction(id: string, reason?: string) { return deleteVehicleTypeActionFn(id, reason) }
+export async function deletePaymentMethodAction(id: string, reason?: string) { return deletePaymentMethodActionFn(id, reason) }
+export async function deleteTaxAction(id: string, reason?: string) { return deleteTaxActionFn(id, reason) }
+export async function deleteBankAccountAction(id: string, reason?: string) { return deleteBankAccountActionFn(id, reason) }
+export async function deleteCreditorAction(id: string, reason?: string) { return deleteCreditorActionFn(id, reason) }
+export async function getDeletionAuditLog(tableName?: string, limit: number = 50) { return getDeletionAuditLogFn(tableName, limit) }
+
 async function getSupabase() {
     const cookieStore = await cookies()
     return createServerClient(
@@ -19,7 +44,6 @@ async function getSupabase() {
     )
 }
 
-// Generic helper to get organization
 // Generic helper to get organization
 async function getOrganizationId(supabase: any) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -105,17 +129,26 @@ export async function saveSimpleItem(table: string, name: string, id?: string) {
     const supabase = await getSupabase()
     const organization_id = await getOrganizationId(supabase)
 
-    if (id) {
-        await supabase.from(table).update({ name }).eq('id', id)
-    } else {
-        await supabase.from(table).insert({ name, organization_id })
-    }
-    revalidatePath('/settings')
-}
+    // Check for duplicate name in the same organization
+    const { data: existing } = await supabase
+        .from(table)
+        .select('id')
+        .eq('organization_id', organization_id)
+        .ilike('name', name)
+        .neq('id', id || '00000000-0000-0000-0000-000000000000') // Exclude current item if editing
+        .single()
 
-export async function deleteItem(table: string, id: string) {
-    const supabase = await getSupabase()
-    await supabase.from(table).delete().eq('id', id)
+    if (existing) {
+        throw new Error(`Ya existe un registro con el nombre "${name}" en esta organización`)
+    }
+
+    if (id) {
+        const { error } = await supabase.from(table).update({ name }).eq('id', id)
+        if (error) throw error
+    } else {
+        const { error } = await supabase.from(table).insert({ name, organization_id })
+        if (error) throw error
+    }
     revalidatePath('/settings')
 }
 
@@ -125,13 +158,28 @@ export async function saveModel(name: string, brandId?: string, id?: string) {
     const supabase = await getSupabase()
     const organization_id = await getOrganizationId(supabase)
 
+    // Check for duplicate model name in the same organization
+    const { data: existing } = await supabase
+        .from('models')
+        .select('id')
+        .eq('organization_id', organization_id)
+        .ilike('name', name)
+        .neq('id', id || '00000000-0000-0000-0000-000000000000') // Exclude current item if editing
+        .single()
+
+    if (existing) {
+        throw new Error(`Ya existe un modelo con el nombre "${name}" en esta organización`)
+    }
+
     const data: any = { name, organization_id }
     if (brandId) data.brand_id = brandId
 
     if (id) {
-        await supabase.from('models').update(data).eq('id', id)
+        const { error } = await supabase.from('models').update(data).eq('id', id)
+        if (error) throw error
     } else {
-        await supabase.from('models').insert(data)
+        const { error } = await supabase.from('models').insert(data)
+        if (error) throw error
     }
     revalidatePath('/settings')
 }

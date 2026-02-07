@@ -39,7 +39,7 @@ async function getSaleData(id: string) {
             vehicles(*)
         `)
         .eq('id', id)
-        .single()
+        .maybeSingle()
     // Order installments by number
     const installmentsPromise = supabase.from('installments').select('*').eq('sale_id', id).order('number', { ascending: true })
     const paymentsPromise = supabase.from('payments').select('*, bank_accounts(*)').eq('sale_id', id)
@@ -51,6 +51,8 @@ async function getSaleData(id: string) {
         console.error("Error fetching sale", saleRes.error)
         return null
     }
+
+    if (!saleRes.data) return null
 
     // Normalized data structure
     const saleData = {
